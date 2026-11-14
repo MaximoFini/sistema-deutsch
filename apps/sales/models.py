@@ -126,6 +126,7 @@ class Shipment(TimeStampedModel):
     status = models.CharField("estado", max_length=30, default="pending")
     label_file = models.FileField("etiqueta", upload_to="etiquetas/%Y/%m/", null=True, blank=True)
     shipped_at = models.DateTimeField("despachado", null=True, blank=True)
+    address = models.JSONField("domicilio de entrega", null=True, blank=True)  # snapshot del canal
 
     class Meta:
         verbose_name = "envío"

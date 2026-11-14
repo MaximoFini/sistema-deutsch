@@ -91,8 +91,27 @@ class IntegrationStatusView(PanelPermissionRequiredMixin, TemplateView):
                 }
             )
         ctx["cards"] = cards
+        ctx["tn"] = self._tiendanube_info()
         ctx["writes_allowed_by_server"] = settings.ALLOW_CHANNEL_WRITES
         return ctx
+
+    def _tiendanube_info(self):
+        from . import credentials
+
+        info = {"configured": bool(settings.TN_APP_ID), "connected": False}
+        try:
+            data = credentials.get(Channel.TIENDANUBE)
+        except credentials.CredentialsMissing:
+            data = None
+        if data:
+            info.update(
+                connected=True,
+                store_id=data.get("store_id"),
+                scope=data.get("scope", ""),
+                mode="webhooks" if settings.TN_WEBHOOKS_BASE_URL else "polling",
+                every=settings.TN_ORDERS_RECONCILE_MINUTES,
+            )
+        return info
 
 
 class RetryFailedEventsView(PanelPermissionRequiredMixin, View):

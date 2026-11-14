@@ -119,6 +119,17 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="Sistema Deutsch <no-repl
 FIELD_ENCRYPTION_KEYS = env.list("FIELD_ENCRYPTION_KEY")
 ALLOW_CHANNEL_WRITES = env.bool("ALLOW_CHANNEL_WRITES", default=False)
 
+# ── Tiendanube (M1) ──
+TN_APP_ID = env("TN_APP_ID", default="")
+TN_CLIENT_SECRET = env("TN_CLIENT_SECRET", default="")
+TN_USER_AGENT = env("TN_USER_AGENT", default="Sistema Deutsch")
+TN_API_VERSION = env("TN_API_VERSION", default="2025-03")
+TN_WEBHOOKS_BASE_URL = env("TN_WEBHOOKS_BASE_URL", default="")  # vacío en local: sin webhooks
+TN_ORDERS_RECONCILE_MINUTES = env.int("TN_ORDERS_RECONCILE_MINUTES", default=5)
+TN_INITIAL_ORDER_DAYS = env.int("TN_INITIAL_ORDER_DAYS", default=30)
+# Canal que alimenta el stock del sistema hasta la integración directa con Contabilium (M8).
+STOCK_FEED_CHANNEL = env("STOCK_FEED_CHANNEL", default="tiendanube")
+
 SENTRY_DSN = env("SENTRY_DSN", default="")
 ENVIRONMENT_NAME = env("ENVIRONMENT_NAME", default="local")
 

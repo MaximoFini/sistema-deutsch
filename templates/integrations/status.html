@@ -27,6 +27,27 @@
       <form method="post" action="{% url 'integrations:toggle_write_switch' card.channel.code 'price' %}">{% csrf_token %}<input type="hidden" name="enabled" value="{% if card.switches.price.enabled %}0{% else %}1{% endif %}"><button class="underline">{% if card.switches.price.enabled %}Apagar{% else %}Encender{% endif %} precio</button></form>
     </div>
     {% endif %}
+    {% if card.channel.code == "tiendanube" %}
+    <div class="mt-3 rounded bg-stone-50 p-2 text-xs">
+      {% if tn.connected %}
+        <p>Tienda <strong>{{ tn.store_id }}</strong> conectada · permisos: {{ tn.scope|default:"—" }}</p>
+        <p>Entrada de pedidos: {% if tn.mode == "webhooks" %}webhooks en tiempo real + conciliación{% else %}consulta cada {{ tn.every }} min (sin servidor público){% endif %}</p>
+      {% elif not tn.configured %}
+        <p>Falta configurar la app de Tiendanube (TN_APP_ID). Ver docs/runbooks/tiendanube-app.md.</p>
+      {% else %}
+        <p>Todavía no está conectada.</p>
+      {% endif %}
+      <div class="mt-2 flex flex-wrap gap-2">
+        {% if perms.integrations.manage_connection and tn.configured %}
+        <form method="post" action="{% url 'tiendanube:connect' %}">{% csrf_token %}<button class="rounded bg-stone-900 px-2 py-1 text-white">{% if tn.connected %}Reconectar{% else %}Conectar Tiendanube{% endif %}</button></form>
+        {% endif %}
+        {% if perms.integrations.retry_event and tn.connected %}
+        <form method="post" action="{% url 'tiendanube:import' 'catalogo' %}">{% csrf_token %}<button class="underline">Importar catálogo</button></form>
+        <form method="post" action="{% url 'tiendanube:import' 'pedidos' %}">{% csrf_token %}<button class="underline">Importar pedidos (30 días)</button></form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
     {% if card.errors %}
     <details class="mt-3 text-xs"><summary class="cursor-pointer underline">Últimos errores</summary>
       <ul class="mt-1 space-y-1">{% for e in card.errors %}<li><span class="text-stone-500">{{ e.received_at|date:"d/m H:i" }} · {{ e.topic }}</span> — {{ e.last_error|truncatechars:160 }}</li>{% endfor %}</ul>

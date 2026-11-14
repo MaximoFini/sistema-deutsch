@@ -25,6 +25,7 @@ class Channel(models.Model):
             ("view_status", "Puede ver el estado de las integraciones"),
             ("retry_event", "Puede reprocesar eventos de integración fallidos"),
             ("toggle_write_switch", "Puede encender o apagar la escritura de stock/precio a un canal"),
+            ("manage_connection", "Puede conectar o reconectar un canal (OAuth)"),
         ]
 
     def __str__(self) -> str:

@@ -140,10 +140,13 @@ def find_by_external(channel_code: str, model, external_id: str):
     return model.objects.filter(pk=ref.object_id).first() if ref else None
 
 
-def run_reconciliation(channel_code: str, job: str = "reconcile") -> SyncRun | None:
+def run_reconciliation(channel_code: str, job: str = "reconcile", fn=None) -> SyncRun | None:
+    """Corre una conciliación y la registra en SyncRun. `fn(since)` permite varias por canal
+    (p. ej. pedidos cada 5 min y catálogo diario); sin `fn` usa `adapter.reconcile`."""
     adapter = registry.get(channel_code)
     if adapter is None:
         return None
+    fn = fn or adapter.reconcile
     channel = Channel.objects.get(code=channel_code)
     last_ok = SyncRun.objects.filter(channel=channel, job=job, status=SyncRun.Status.OK).first()
     since = None
@@ -151,7 +154,7 @@ def run_reconciliation(channel_code: str, job: str = "reconcile") -> SyncRun | N
         since = last_ok.started_at - timezone.timedelta(minutes=10)  # margen de solapamiento
     run = SyncRun.objects.create(channel=channel, job=job)
     try:
-        stats = adapter.reconcile(since) or {}
+        stats = fn(since) or {}
     except Exception as exc:  # noqa: BLE001
         logger.exception("Falló la conciliación de %s", channel_code)
         run.status = SyncRun.Status.ERROR

@@ -8,6 +8,8 @@ class Product(TimeStampedModel):
     description = models.TextField("descripción", blank=True)
     brand = models.CharField("marca", max_length=100, blank=True, default="Deutsch")
     category = models.CharField("categoría", max_length=150, blank=True)
+    categories = models.JSONField("categorías", default=list, blank=True)  # nombres, desde TN
+    images = models.JSONField("fotos", default=list, blank=True)  # [{url, position, alt}]
     is_active = models.BooleanField("activo", default=True)
 
     class Meta:
@@ -29,6 +31,8 @@ class Variant(TimeStampedModel):
     width_mm = models.PositiveIntegerField("ancho (mm)", null=True, blank=True)
     height_mm = models.PositiveIntegerField("alto (mm)", null=True, blank=True)
     is_active = models.BooleanField("activa", default=True)
+    needs_review = models.BooleanField("revisar datos", default=False)
+    review_notes = models.CharField("motivo de revisión", max_length=255, blank=True)
 
     class Meta:
         verbose_name = "variante"

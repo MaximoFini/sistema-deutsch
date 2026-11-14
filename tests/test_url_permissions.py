@@ -3,7 +3,7 @@
 from django.urls import URLPattern, URLResolver, get_resolver
 
 # Prefijos fuera del panel: admin de Django (solo superusuarios), health, webhooks (firma del canal).
-EXCLUDED_NAMESPACES = {"admin", "hooks"}
+EXCLUDED_NAMESPACES = {"admin", "hooks", "tn_privacy"}
 EXCLUDED_NAMES = {"health"}
 VALID_ACCESS = {"login", "permission", "public", "webhook"}
 

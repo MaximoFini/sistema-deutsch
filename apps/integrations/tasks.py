@@ -18,6 +18,8 @@ def reconcile_channel(channel_code: str):
 def reconcile_all(timestamp: int):
     """Cada 15 minutos concilia todos los canales con adaptador registrado."""
     for adapter in registry.all_adapters():
+        if getattr(adapter, "own_schedule", False):
+            continue  # el canal tiene sus propias tareas periódicas
         reconcile_channel.configure(queueing_lock=f"reconcile:{adapter.code}").defer(
             channel_code=adapter.code
         )

@@ -11,7 +11,7 @@ from django.http import HttpRequest
 _ADAPTERS: dict[str, "ChannelAdapter"] = {}
 
 ADAPTER_MODULES = [
-    # "apps.integrations.adapters.tiendanube",   # M1
+    "apps.integrations.adapters.tiendanube",  # M1
     # "apps.integrations.adapters.mercadolibre", # M2
     # "apps.integrations.adapters.contabilium",  # M8
 ]

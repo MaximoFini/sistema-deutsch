@@ -18,3 +18,7 @@ STORAGES = {
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
 MIDDLEWARE = [m for m in MIDDLEWARE if "whitenoise" not in m]  # noqa: F405
+TN_APP_ID = "1234"
+TN_CLIENT_SECRET = "secreto-de-test"
+TN_USER_AGENT = "Sistema Deutsch Tests (test@example.com)"
+TN_WEBHOOKS_BASE_URL = ""

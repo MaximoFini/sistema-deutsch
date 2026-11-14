@@ -26,6 +26,7 @@ class PriceListItem(TimeStampedModel):
     price_list = models.ForeignKey(PriceList, on_delete=models.PROTECT, related_name="items")
     variant = models.ForeignKey(Variant, on_delete=models.PROTECT, related_name="prices")
     price = money_field("precio")
+    promotional_price = money_field("precio promocional", null=True, blank=True, default=None)
     vat_rate = models.DecimalField("alícuota IVA %", max_digits=5, decimal_places=2, default=21)
     valid_from = models.DateTimeField("vigente desde", default=timezone.now)
 

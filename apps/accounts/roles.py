@@ -18,6 +18,7 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "integrations.view_status",
         "integrations.retry_event",
         "integrations.toggle_write_switch",
+        "integrations.manage_connection",
         "core.change_source_of_truth",
     ],
     DEPOSITO: ["alerts.view_alert"],
@@ -38,6 +39,7 @@ PERMISSION_LABELS: dict[str, str] = {
     "integrations.retry_event": "Reprocesar eventos de integración fallidos",
     "integrations.toggle_write_switch": "Encender o apagar la escritura de stock/precio a un canal",
     "core.change_source_of_truth": "Cambiar la fuente de verdad de un dato",
+    "integrations.manage_connection": "Conectar o reconectar un canal de venta",
 }
 
 

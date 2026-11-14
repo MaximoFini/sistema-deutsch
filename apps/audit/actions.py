@@ -13,6 +13,9 @@ ACTIONS: dict[str, str] = {
     "integration.write_switch_changed": "Interruptor de escritura cambiado",
     "integration.write_blocked": "Escritura a canal bloqueada",
     "integration.event_retried": "Evento de integración reprocesado",
+    "integration.connected": "Canal conectado",
+    "integration.disconnected": "Canal desconectado",
+    "privacy.customer_redacted": "Datos de cliente anonimizados (pedido de privacidad)",
     "alert_type.updated": "Tipo de alerta editado",
     # M4 · pedidos
     "order.status_changed": "Cambio de estado de pedido",

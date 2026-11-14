@@ -316,17 +316,12 @@ def test_status_panel_counts(fake, admin_client, in_memory_queue):
 
 
 def test_status_panel_marks_stale_channels(admin_client):
-    registry.register(type("TN", (), {"code": "tiendanube", "handlers": {}})())
-    try:
-        SyncRun.objects.create(channel=Channel.objects.get(code="tiendanube"), job="reconcile", status="ok")
-        SyncRun.objects.filter(channel__code="tiendanube").update(
-            started_at=timezone.now() - timedelta(hours=2)
-        )
-        response = admin_client.get(reverse("integrations:status"))
-        card = next(c for c in response.context["cards"] if c["channel"].code == "tiendanube")
-        assert card["stale"] is True
-    finally:
-        registry.unregister("tiendanube")
+    # Tiendanube tiene adaptador registrado (M1): sin sincronizar hace 2 h → "stale".
+    SyncRun.objects.create(channel=Channel.objects.get(code="tiendanube"), job="orders", status="ok")
+    SyncRun.objects.filter(channel__code="tiendanube").update(started_at=timezone.now() - timedelta(hours=2))
+    response = admin_client.get(reverse("integrations:status"))
+    card = next(c for c in response.context["cards"] if c["channel"].code == "tiendanube")
+    assert card["stale"] is True
 
 
 def test_status_panel_permission(client, users_by_role):
