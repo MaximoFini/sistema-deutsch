@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 from apps.core.models import TimeStampedModel
@@ -38,6 +39,12 @@ class Variant(TimeStampedModel):
         verbose_name = "variante"
         verbose_name_plural = "variantes"
         ordering = ["sku"]
+        permissions = [
+            ("manage_links", "Puede vincular publicaciones y códigos de canales con SKU"),
+            ("import_contabilium", "Puede importar el archivo de productos de Contabilium"),
+            ("view_channel_stock", "Puede ver stock y precio por canal"),
+            ("view_quality", "Puede ver el panel de calidad de datos"),
+        ]
 
     def __str__(self) -> str:
         attrs = " / ".join(str(v) for v in self.attributes.values())
@@ -90,6 +97,17 @@ class ListingVariation(models.Model):
     available_quantity = models.IntegerField("stock en el canal", null=True, blank=True)
     user_product_id = models.CharField(max_length=64, blank=True)
     picture_urls = models.JSONField("fotos", default=list, blank=True)
+    link_source = models.CharField(
+        "origen del vínculo",
+        max_length=10,
+        blank=True,
+        default="",
+        choices=[("", "sin vincular"), ("auto", "automático"), ("manual", "manual")],
+    )
+    linked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    linked_at = models.DateTimeField("vinculado", null=True, blank=True)
 
     class Meta:
         verbose_name = "variación de publicación"
@@ -100,3 +118,32 @@ class ListingVariation(models.Model):
 
     def __str__(self) -> str:
         return f"{self.listing.external_id}:{self.external_id or '-'} ({self.sku or 'sin SKU'})"
+
+
+class ContabiliumImport(models.Model):
+    """Historial de importaciones del archivo de productos de Contabilium (no hay API)."""
+
+    class Status(models.TextChoices):
+        PREVIEW = "preview", "Vista previa"
+        APPLIED = "applied", "Aplicada"
+        DISCARDED = "discarded", "Descartada"
+
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    uploaded_at = models.DateTimeField("subido", auto_now_add=True)
+    filename = models.CharField("archivo", max_length=255)
+    status = models.CharField("estado", max_length=10, choices=Status.choices, default=Status.PREVIEW)
+    columns = models.JSONField("columnas detectadas", default=dict)
+    rows = models.JSONField("filas", default=list)
+    summary = models.JSONField("resumen", default=dict)
+    applied_at = models.DateTimeField("aplicada", null=True, blank=True)
+    applied_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+
+    class Meta:
+        verbose_name = "importación de Contabilium"
+        verbose_name_plural = "importaciones de Contabilium"
+        ordering = ["-uploaded_at"]
+
+    def __str__(self) -> str:
+        return f"{self.filename} ({self.get_status_display()})"

@@ -1,5 +1,9 @@
 {# Menú del panel: cada ítem se muestra solo si el usuario tiene el permiso. Los módulos M1–M8 agregan los suyos acá. #}
 <a href="{% url 'core:home' %}" class="hover:underline">Inicio</a>
+{% if perms.catalog.view_variant %}<a href="{% url 'catalog:list' %}" class="hover:underline">Catálogo</a>{% endif %}
+{% if perms.catalog.manage_links %}<a href="{% url 'catalog:unlinked' %}" class="hover:underline">Sin vincular</a>{% endif %}
+{% if perms.catalog.view_channel_stock %}<a href="{% url 'catalog:channel_stock' %}" class="hover:underline">Stock y precios</a>{% endif %}
+{% if perms.catalog.view_quality %}<a href="{% url 'catalog:quality' %}" class="hover:underline">Calidad</a>{% endif %}
 {% if perms.alerts.view_alert %}<a href="{% url 'alerts:list' %}" class="hover:underline">Avisos</a>{% endif %}
 {% if perms.integrations.view_status %}<a href="{% url 'integrations:status' %}" class="hover:underline">Integraciones</a>{% endif %}
 {% if perms.accounts.manage_users %}<a href="{% url 'accounts:user_list' %}" class="hover:underline">Usuarios</a>{% endif %}

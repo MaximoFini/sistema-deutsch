@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Calidad de datos · Catálogo{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <h1 class="text-xl font-semibold">Calidad de datos del catálogo</h1>
+    <p class="text-sm text-stone-600">{{ total }} problemas · <span class="text-red-700">{{ critical }} críticos</span>. Se corrigen en el origen (Tiendanube, Mercado Libre o Contabilium).</p>
+  </div>
+  <a href="?tipo={{ tipo }}&severidad={{ severidad }}&formato=xlsx" class="rounded border border-stone-300 px-3 py-1.5 text-sm">Exportar a Excel</a>
+</div>
+<div class="mb-4 flex flex-wrap gap-2 text-xs">
+  <a href="?" class="rounded-full border px-2 py-1 {% if not tipo and not severidad %}bg-stone-900 text-white{% endif %}">Todos</a>
+  <a href="?severidad=critical" class="rounded-full border border-red-300 px-2 py-1 {% if severidad == 'critical' %}bg-red-700 text-white{% endif %}">Críticos</a>
+  {% for code, c in counts.items %}
+    <a href="?tipo={{ code }}" class="rounded-full border px-2 py-1 {% if tipo == code %}bg-stone-900 text-white{% elif c.severity == 'critical' %}border-red-300 text-red-700{% endif %}">{{ c.label }} ({{ c.count }})</a>
+  {% endfor %}
+</div>
+<table class="w-full rounded-lg border border-stone-200 bg-white text-sm">
+  <thead class="bg-stone-100 text-left text-stone-600"><tr><th class="px-3 py-2">Severidad</th><th class="px-3 py-2">Problema</th><th class="px-3 py-2">SKU</th><th class="px-3 py-2">Producto</th><th class="px-3 py-2">Detalle</th></tr></thead>
+  <tbody>
+  {% for i in issues %}
+    <tr class="border-t border-stone-100">
+      <td class="px-3 py-2">{% if i.severity == "critical" %}<span class="rounded bg-red-100 px-1.5 text-xs text-red-800">Crítico</span>{% else %}<span class="rounded bg-amber-100 px-1.5 text-xs text-amber-800">Aviso</span>{% endif %}</td>
+      <td class="px-3 py-2">{{ i.title }}</td>
+      <td class="px-3 py-2 font-mono"><a href="{{ i.url }}" class="underline">{{ i.sku }}</a></td>
+      <td class="px-3 py-2">{{ i.product|truncatechars:50 }}</td>
+      <td class="px-3 py-2 text-xs text-stone-600">{{ i.detail }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="5" class="px-3 py-6 text-center text-stone-500">Sin problemas con ese filtro.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

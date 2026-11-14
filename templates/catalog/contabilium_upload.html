@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Importar Contabilium · Catálogo{% endblock %}
+{% block content %}
+<h1 class="mb-1 text-xl font-semibold">Importar archivo de productos de Contabilium</h1>
+<p class="mb-4 text-sm text-stone-600">Contabilium no tiene API: exportá el listado de productos a Excel o CSV y subilo acá. Antes de aplicar vas a ver una vista previa; nada se modifica hasta que confirmes.</p>
+<form method="post" enctype="multipart/form-data" class="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-stone-200 bg-white p-4 text-sm">{% csrf_token %}
+  <input type="file" name="archivo" accept=".xlsx,.csv,.txt" required>
+  <button class="rounded bg-stone-900 px-3 py-1.5 text-white">Subir y ver vista previa</button>
+  <p class="w-full text-xs text-stone-500">Columnas que se reconocen: código/SKU (obligatoria), nombre, código de barras, stock, precio (minorista) y precio mayorista.</p>
+</form>
+<h2 class="mb-2 font-semibold">Importaciones anteriores</h2>
+<table class="w-full rounded-lg border border-stone-200 bg-white text-sm">
+  <thead class="bg-stone-100 text-left text-stone-600"><tr><th class="px-3 py-2">Fecha</th><th class="px-3 py-2">Archivo</th><th class="px-3 py-2">Usuario</th><th class="px-3 py-2">Estado</th><th class="px-3 py-2">Filas</th></tr></thead>
+  <tbody>
+  {% for imp in imports %}
+    <tr class="border-t border-stone-100">
+      <td class="px-3 py-2">{{ imp.uploaded_at|date:"d/m/Y H:i" }}</td>
+      <td class="px-3 py-2"><a href="{% url 'catalog:contabilium_preview' imp.pk %}" class="underline">{{ imp.filename }}</a></td>
+      <td class="px-3 py-2">{{ imp.uploaded_by }}</td>
+      <td class="px-3 py-2">{{ imp.get_status_display }}</td>
+      <td class="px-3 py-2">{{ imp.summary.total }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="5" class="px-3 py-6 text-center text-stone-500">Todavía no se importó ningún archivo.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -15,6 +15,7 @@ urlpatterns = [
     path("cuenta/", include("apps.accounts.urls")),
     path("auditoria/", include("apps.audit.urls")),
     path("avisos/", include("apps.alerts.urls")),
+    path("catalogo/", include("apps.catalog.urls")),
     path("integraciones/tiendanube/", include("apps.integrations.adapters.tiendanube.urls")),
     path("integraciones/mercadolibre/", include("apps.integrations.adapters.mercadolibre.urls")),
     path("integraciones/", include("apps.integrations.urls")),

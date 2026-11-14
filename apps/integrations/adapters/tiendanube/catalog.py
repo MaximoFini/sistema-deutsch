@@ -8,6 +8,7 @@ import logging
 from django.conf import settings
 from django.db import transaction
 
+from apps.catalog.linking import relink_for_variant
 from apps.catalog.models import Product, Variant
 from apps.integrations.models import ExternalRef
 from apps.integrations.services import find_by_external, link_external
@@ -135,6 +136,7 @@ def upsert_product(data: dict) -> Product:
                 setattr(variant, key, value)
             variant.save()
         seen.add(variant.pk)
+        relink_for_variant(variant)  # publicaciones de otros canales que llegaron antes (M3)
 
         price = dec(tn_variant.get("price"))
         promo = dec(tn_variant.get("promotional_price"))

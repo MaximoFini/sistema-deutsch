@@ -23,15 +23,24 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "conversations.send_message",
         "conversations.view_claim",
         "core.change_source_of_truth",
+        "catalog.view_variant",
+        "catalog.manage_links",
+        "catalog.import_contabilium",
+        "catalog.view_channel_stock",
+        "catalog.view_quality",
     ],
-    DEPOSITO: ["alerts.view_alert"],
+    DEPOSITO: ["alerts.view_alert", "catalog.view_variant"],
     VENTAS: [
         "alerts.view_alert",
         "conversations.answer_question",
         "conversations.send_message",
         "conversations.view_claim",
+        "catalog.view_variant",
+        "catalog.manage_links",
+        "catalog.view_channel_stock",
+        "catalog.view_quality",
     ],
-    VENDEDOR: ["alerts.view_alert"],
+    VENDEDOR: ["alerts.view_alert", "catalog.view_variant"],
 }
 
 ROLE_NAMES = list(ROLE_PERMISSIONS)
@@ -51,6 +60,11 @@ PERMISSION_LABELS: dict[str, str] = {
     "conversations.answer_question": "Responder preguntas de Mercado Libre",
     "conversations.send_message": "Enviar mensajes postventa",
     "conversations.view_claim": "Ver reclamos y devoluciones",
+    "catalog.view_variant": "Ver el catálogo",
+    "catalog.manage_links": "Vincular publicaciones y códigos con SKU",
+    "catalog.import_contabilium": "Importar el archivo de productos de Contabilium",
+    "catalog.view_channel_stock": "Ver stock y precio por canal",
+    "catalog.view_quality": "Ver el panel de calidad de datos",
 }
 
 

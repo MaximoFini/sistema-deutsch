@@ -9,9 +9,9 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 
+from apps.catalog.linking import _sync_mirror, auto_link
 from apps.catalog.models import Listing, ListingVariation, Variant
 from apps.integrations.models import Channel
-from apps.integrations.services import link_external
 
 from .common import attr_value, dec, dt
 
@@ -71,22 +71,16 @@ def upsert_item(item: dict) -> Listing:
     for variation in rows:
         ext_id = str(variation["id"]) if variation else ""
         sku = _variation_sku(item, variation)
-        variant = Variant.objects.filter(sku=sku).first() if sku else None
-        if not sku:
-            notes.append(f"{ext_id or 'publicación'}: sin SKU")
-        elif variant is None:
-            notes.append(f"{ext_id or 'publicación'}: SKU {sku} no está en el catálogo")
         attributes = {
             c.get("name"): c.get("value_name")
             for c in (variation or {}).get("attribute_combinations") or []
             if c.get("name")
         }
         picture_ids = (variation or {}).get("picture_ids") or list(pictures)
-        ListingVariation.objects.update_or_create(
+        row, _ = ListingVariation.objects.update_or_create(
             listing=listing,
             external_id=ext_id,
             defaults={
-                "variant": variant,
                 "sku": sku[:64],
                 "attributes": attributes,
                 "price": dec((variation or {}).get("price", item.get("price"))),
@@ -98,9 +92,18 @@ def upsert_item(item: dict) -> Listing:
             },
         )
         seen.append(ext_id)
-        if variant is not None:
-            link_external(CHANNEL, variant, f"{item['id']}:{ext_id}", {"listing_id": listing.pk, "sku": sku})
-    listing.variations.exclude(external_id__in=seen).delete()  # datos del canal: se pueden borrar
+        linked = auto_link(row)  # respeta vínculos manuales (M3)
+        if row.link_source == "manual" and not linked:
+            pass  # desvinculado a propósito: no se marca para revisión
+        elif not sku:
+            notes.append(f"{ext_id or 'publicación'}: sin SKU")
+        elif not linked:
+            notes.append(f"{ext_id or 'publicación'}: SKU {sku} no está en el catálogo")
+    gone = listing.variations.exclude(external_id__in=seen)
+    for row in gone:  # datos del canal: se pueden borrar (con su vínculo espejo)
+        row.variant = None
+        _sync_mirror(row)
+    gone.delete()
     listing.needs_review = bool(notes)
     listing.review_notes = "; ".join(notes)[:255]
     listing.save(update_fields=["needs_review", "review_notes", "updated_at"])

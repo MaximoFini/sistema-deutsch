@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Catálogo · Sistema Deutsch{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <h1 class="text-xl font-semibold">Catálogo</h1>
+  {% if perms.catalog.import_contabilium %}<a href="{% url 'catalog:contabilium' %}" class="text-sm underline">Importar archivo de Contabilium</a>{% endif %}
+</div>
+<form method="get" class="mb-4 flex flex-wrap items-end gap-3 text-sm">
+  <input type="search" name="q" value="{{ q }}" placeholder="SKU, nombre o código de barras" class="w-72 rounded border border-stone-300 px-3 py-1.5" autofocus>
+  <select name="filtro" class="rounded border border-stone-300 px-2 py-1.5">
+    <option value="">Activas</option>
+    <option value="sin_ml" {% if filtro == "sin_ml" %}selected{% endif %}>Sin publicación en ML</option>
+    <option value="sin_contabilium" {% if filtro == "sin_contabilium" %}selected{% endif %}>Sin código de Contabilium</option>
+    <option value="revisar" {% if filtro == "revisar" %}selected{% endif %}>Para revisar</option>
+    <option value="inactivas" {% if filtro == "inactivas" %}selected{% endif %}>Inactivas</option>
+  </select>
+  <button class="rounded bg-stone-900 px-3 py-1.5 text-white">Buscar</button>
+</form>
+<table class="w-full rounded-lg border border-stone-200 bg-white text-sm">
+  <thead class="bg-stone-100 text-left text-stone-600"><tr><th class="px-3 py-2"></th><th class="px-3 py-2">SKU</th><th class="px-3 py-2">Producto</th><th class="px-3 py-2">Atributos</th><th class="px-3 py-2">Código de barras</th></tr></thead>
+  <tbody>
+  {% for v in variants %}
+    <tr class="border-t border-stone-100">
+      <td class="px-3 py-2">{% with img=v.product.images.0 %}{% if img %}<img src="{{ img.url }}" alt="" class="h-10 w-10 rounded object-cover">{% endif %}{% endwith %}</td>
+      <td class="px-3 py-2 font-mono"><a href="{% url 'catalog:detail' v.pk %}" class="underline">{{ v.sku }}</a>{% if v.needs_review %} <span class="rounded bg-amber-100 px-1 text-xs text-amber-800" title="{{ v.review_notes }}">revisar</span>{% endif %}</td>
+      <td class="px-3 py-2">{{ v.product.name }}</td>
+      <td class="px-3 py-2">{% for k, val in v.attributes.items %}{{ val }}{% if not forloop.last %} / {% endif %}{% endfor %}</td>
+      <td class="px-3 py-2 font-mono text-xs">{{ v.barcode|default:"—" }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="5" class="px-3 py-6 text-center text-stone-500">No hay variantes con ese criterio.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if is_paginated %}
+<div class="mt-4 flex gap-4 text-sm">
+  {% if page_obj.has_previous %}<a class="underline" href="?{{ querystring }}&page={{ page_obj.previous_page_number }}">Anterior</a>{% endif %}
+  <span>Página {{ page_obj.number }} de {{ paginator.num_pages }} · {{ paginator.count }} variantes</span>
+  {% if page_obj.has_next %}<a class="underline" href="?{{ querystring }}&page={{ page_obj.next_page_number }}">Siguiente</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

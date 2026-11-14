@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Sin vincular · Catálogo{% endblock %}
+{% block content %}
+<h1 class="mb-1 text-xl font-semibold">Sin vincular</h1>
+<p class="mb-4 text-sm text-stone-600">Publicaciones de Mercado Libre y códigos de Contabilium que no coinciden con ningún SKU. Buscá el SKU correcto y vinculalo: el vínculo manual no se pisa con las sincronizaciones.</p>
+<form method="get" class="mb-4 flex gap-2 text-sm">
+  <select name="canal" class="rounded border border-stone-300 px-2 py-1.5" onchange="this.form.submit()">
+    <option value="">Todos los canales</option>
+    {% for c in channels %}<option value="{{ c.code }}" {% if canal == c.code %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+  </select>
+</form>
+<div class="space-y-3">
+{% for r in rows %}
+  <div class="rounded-lg border border-stone-200 bg-white p-3 text-sm">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="rounded bg-stone-100 px-1.5 text-xs">{{ r.listing.channel.name }}</span>
+      <strong>{{ r.listing.title }}</strong>
+      <span class="font-mono text-xs">{{ r.listing.external_id }}{% if r.external_id %}:{{ r.external_id }}{% endif %}</span>
+      <span class="text-xs">SKU: <span class="font-mono">{{ r.sku|default:"(vacío)" }}</span></span>
+      {% for k, val in r.attributes.items %}<span class="text-xs text-stone-500">{{ k }}: {{ val }}</span>{% endfor %}
+      {% if r.link_source == "manual" %}<span class="rounded bg-stone-200 px-1.5 text-xs">desvinculado a mano</span>{% endif %}
+    </div>
+    <div class="mt-2">
+      <input type="search" name="q" placeholder="Buscar SKU o nombre para vincular…" class="w-80 rounded border border-stone-300 px-2 py-1"
+             hx-get="{% url 'catalog:variant_search' %}?row={{ r.pk }}" hx-trigger="keyup changed delay:300ms" hx-target="#results-{{ r.pk }}">
+      <div id="results-{{ r.pk }}" class="mt-1"></div>
+    </div>
+  </div>
+{% empty %}
+  <p class="rounded-lg border border-stone-200 bg-white p-6 text-center text-sm text-stone-500">No hay nada sin vincular. 🎉</p>
+{% endfor %}
+</div>
+{% if is_paginated %}
+<div class="mt-4 flex gap-4 text-sm">
+  {% if page_obj.has_previous %}<a class="underline" href="?canal={{ canal }}&page={{ page_obj.previous_page_number }}">Anterior</a>{% endif %}
+  <span>Página {{ page_obj.number }} de {{ paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a class="underline" href="?canal={{ canal }}&page={{ page_obj.next_page_number }}">Siguiente</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

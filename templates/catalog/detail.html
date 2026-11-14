@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ variant.sku }} · Catálogo{% endblock %}
+{% block content %}
+<a href="{% url 'catalog:list' %}" class="text-sm underline">← Catálogo</a>
+<div class="mt-2 flex flex-wrap items-start gap-6">
+  <div class="flex gap-2">{% for img in variant.product.images|slice:":3" %}<img src="{{ img.url }}" alt="{{ img.alt }}" class="h-24 w-24 rounded object-cover">{% endfor %}</div>
+  <div>
+    <h1 class="text-xl font-semibold">{{ variant.product.name }}</h1>
+    <p class="font-mono text-sm">SKU {{ variant.sku }}{% if variant.barcode %} · EAN {{ variant.barcode }}{% endif %}</p>
+    <p class="text-sm text-stone-600">{% for k, val in variant.attributes.items %}{{ k }}: {{ val }}{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+    <p class="text-sm text-stone-600">Peso {{ variant.weight_g|default:"—" }} g · Medidas {{ variant.length_mm|default:"—" }}×{{ variant.width_mm|default:"—" }}×{{ variant.height_mm|default:"—" }} mm</p>
+    {% if variant.needs_review %}<p class="mt-1 text-sm text-amber-800">Para revisar: {{ variant.review_notes }}</p>{% endif %}
+    {% if not variant.is_active %}<p class="mt-1 text-sm text-red-700">Inactiva</p>{% endif %}
+  </div>
+  <div class="ml-auto rounded-lg border border-stone-200 bg-white p-3 text-sm">
+    <p>Precio minorista: <strong>{% if price_minorista %}${{ price_minorista.price|floatformat:"2g" }}{% if price_minorista.promotional_price %} (promo ${{ price_minorista.promotional_price|floatformat:"2g" }}){% endif %}{% else %}—{% endif %}</strong></p>
+    <p>Precio mayorista (neto): <strong>{% if price_mayorista %}${{ price_mayorista.price|floatformat:"2g" }}{% else %}—{% endif %}</strong></p>
+    <p>Stock del sistema: <strong>{{ stock_level.on_hand|floatformat:0|default:"—" }}</strong>{% if stock_level.reserved %} (reservado {{ stock_level.reserved|floatformat:0 }}){% endif %}</p>
+  </div>
+</div>
+
+<div class="mt-6 grid gap-4 md:grid-cols-2">
+  <section class="rounded-lg border border-stone-200 bg-white p-4 text-sm">
+    <h2 class="mb-2 font-semibold">Tiendanube</h2>
+    {% if tn_ref %}
+      <p>Variante {{ tn_ref.external_id }} · producto {{ tn_ref.extra.product_id }}</p>
+      <p>Stock {{ tn_ref.extra.stock|default_if_none:"sin control" }} · precio ${{ tn_ref.extra.price|default:"—" }}{% if tn_ref.extra.promotional_price %} · promo ${{ tn_ref.extra.promotional_price }}{% endif %}</p>
+    {% else %}<p class="text-stone-500">Sin vínculo con Tiendanube.</p>{% endif %}
+  </section>
+  <section class="rounded-lg border border-stone-200 bg-white p-4 text-sm">
+    <h2 class="mb-2 font-semibold">Mercado Libre</h2>
+    {% for r in ml_rows %}
+      <div class="border-t border-stone-100 py-1 first:border-0">
+        <a href="{{ r.listing.permalink }}" class="underline" target="_blank" rel="noopener">{{ r.listing.external_id }}</a>{% if r.external_id %} · var. {{ r.external_id }}{% endif %}
+        · {{ r.listing.status }} · {% if r.listing.logistic_type == "fulfillment" %}Full{% else %}{{ r.listing.logistic_type|default:"—" }}{% endif %}
+        · stock {{ r.available_quantity|default_if_none:"—" }} · ${{ r.price|default:r.listing.price }}
+        {% if r.link_source == "manual" %}<span class="text-xs text-stone-500">(vínculo manual)</span>{% endif %}
+      </div>
+    {% empty %}<p class="text-stone-500">Sin publicaciones vinculadas.</p>{% endfor %}
+  </section>
+  <section class="rounded-lg border border-stone-200 bg-white p-4 text-sm">
+    <h2 class="mb-2 font-semibold">Contabilium</h2>
+    {% for r in cb_rows %}
+      <p>Código {{ r.listing.external_id }} · {{ r.listing.title }}{% if r.listing.status == "missing" %} <span class="text-red-700">(no vino en el último archivo)</span>{% endif %}</p>
+      <p>Stock {{ r.available_quantity|default_if_none:"—" }} · precio ${{ r.price|default:"—" }} · mayorista ${{ r.listing.data.wholesale_price|default:"—" }} · {{ r.listing.last_synced_at|date:"d/m/Y" }}</p>
+    {% empty %}<p class="text-stone-500">Sin código de Contabilium (importá el archivo de productos).</p>{% endfor %}
+  </section>
+  <section class="rounded-lg border border-dashed border-stone-300 bg-white p-4 text-sm text-stone-500">
+    <h2 class="mb-2 font-semibold text-stone-700">Tienda mayorista</h2>
+    <p>Disponible cuando esté la tienda mayorista (M8).</p>
+  </section>
+</div>
+{% endblock %}

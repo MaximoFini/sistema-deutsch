@@ -1,0 +1,11 @@
+{% for v in results %}
+<form method="post" action="{% url 'catalog:link' row_id %}" class="flex items-center gap-2 border-b border-stone-100 py-1 text-xs">{% csrf_token %}
+  <input type="hidden" name="variant" value="{{ v.pk }}">
+  <input type="hidden" name="next" value="{{ request.META.HTTP_HX_CURRENT_URL|default:'' }}">
+  <span class="font-mono">{{ v.sku }}</span> <span>{{ v.product.name }}</span>
+  <span class="text-stone-500">{% for k, val in v.attributes.items %}{{ val }} {% endfor %}</span>
+  <button class="ml-auto rounded bg-stone-900 px-2 py-0.5 text-white">Vincular</button>
+</form>
+{% empty %}
+<p class="text-xs text-stone-500">Escribí al menos 2 caracteres. Sin resultados por ahora.</p>
+{% endfor %}

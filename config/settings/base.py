@@ -140,6 +140,12 @@ ML_POLL_MINUTES = env.int("ML_POLL_MINUTES", default=5)
 ML_LABEL_FORMAT = env("ML_LABEL_FORMAT", default="pdf")  # pdf | zpl2 (impresora a confirmar)
 ML_INITIAL_ORDER_DAYS = env.int("ML_INITIAL_ORDER_DAYS", default=30)
 
+# ── Catálogo maestro (M3) ──
+CATALOG_SUSPICIOUS_PRICE_MIN = env.int("CATALOG_SUSPICIOUS_PRICE_MIN", default=1000)
+CATALOG_PRICE_DIFF_PCT = env.int("CATALOG_PRICE_DIFF_PCT", default=30)
+CONTABILIUM_WHOLESALE_INCLUDES_VAT = env.bool("CONTABILIUM_WHOLESALE_INCLUDES_VAT", default=False)
+CONTABILIUM_MAX_FILE_MB = 5
+
 SENTRY_DSN = env("SENTRY_DSN", default="")
 ENVIRONMENT_NAME = env("ENVIRONMENT_NAME", default="local")
 

@@ -16,6 +16,8 @@ ACTIONS: dict[str, str] = {
     "integration.connected": "Canal conectado",
     "integration.disconnected": "Canal desconectado",
     "privacy.customer_redacted": "Datos de cliente anonimizados (pedido de privacidad)",
+    "catalog.link_changed": "Vínculo de catálogo cambiado",
+    "catalog.contabilium_imported": "Archivo de Contabilium importado",
     "alert_type.updated": "Tipo de alerta editado",
     # M4 · pedidos
     "order.status_changed": "Cambio de estado de pedido",

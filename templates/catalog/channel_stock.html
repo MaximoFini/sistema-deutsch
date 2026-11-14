@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Stock y precios por canal · Sistema Deutsch{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <h1 class="text-xl font-semibold">Stock y precios por canal</h1>
+    <p class="text-sm text-stone-600">Solo lectura. {{ diff_count }} SKU con diferencias{% if diferencias %} (mostrando solo esos){% endif %}.</p>
+  </div>
+  <a href="?q={{ q }}&diferencias={{ diferencias }}&formato=xlsx" class="rounded border border-stone-300 px-3 py-1.5 text-sm">Exportar a Excel</a>
+</div>
+<form method="get" class="mb-4 flex flex-wrap items-center gap-3 text-sm">
+  <input type="search" name="q" value="{{ q }}" placeholder="SKU, nombre o código de barras" class="w-72 rounded border border-stone-300 px-3 py-1.5">
+  <label class="flex items-center gap-1"><input type="checkbox" name="diferencias" value="1" {% if diferencias %}checked{% endif %}> Solo con diferencias</label>
+  <button class="rounded bg-stone-900 px-3 py-1.5 text-white">Filtrar</button>
+</form>
+<div class="overflow-x-auto">
+<table class="w-full rounded-lg border border-stone-200 bg-white text-xs">
+  <thead class="bg-stone-100 text-stone-600">
+    <tr><th class="px-2 py-2 text-left" rowspan="2">SKU / producto</th><th class="px-2 py-1 text-center" colspan="5">Stock</th><th class="px-2 py-1 text-center" colspan="4">Precio</th></tr>
+    <tr class="text-right"><th class="px-2 py-1">Contabilium</th><th class="px-2 py-1">Tiendanube</th><th class="px-2 py-1">ML propio</th><th class="px-2 py-1">ML Full</th><th class="px-2 py-1">Mayorista</th>
+        <th class="px-2 py-1">Minorista</th><th class="px-2 py-1">Mayorista (neto)</th><th class="px-2 py-1">Tiendanube</th><th class="px-2 py-1">ML</th></tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr class="border-t border-stone-100 {% if r.has_diff %}bg-amber-50{% endif %}">
+      <td class="px-2 py-1"><a href="{% url 'catalog:detail' r.variant.pk %}" class="font-mono underline">{{ r.variant.sku }}</a><div class="text-stone-500">{{ r.variant.product.name|truncatechars:40 }}</div></td>
+      <td class="px-2 py-1 text-right {% if r.stock_diff and r.stock.contabilium is not None %}font-semibold text-red-700{% endif %}" title="{{ r.updated.contabilium|date:'d/m H:i' }}">{{ r.stock.contabilium|default_if_none:"—" }}</td>
+      <td class="px-2 py-1 text-right {% if r.stock_diff and r.stock.tiendanube is not None %}font-semibold text-red-700{% endif %}" title="{{ r.updated.tiendanube|date:'d/m H:i' }}">{{ r.stock.tiendanube|default_if_none:"—" }}</td>
+      <td class="px-2 py-1 text-right {% if r.stock_diff and r.stock.ml_own is not None %}font-semibold text-red-700{% endif %}" title="{{ r.updated.mercadolibre|date:'d/m H:i' }}">{{ r.stock.ml_own|default_if_none:"—" }}</td>
+      <td class="px-2 py-1 text-right">{{ r.stock.ml_full|default_if_none:"—" }}</td>
+      <td class="px-2 py-1 text-right text-stone-400">—</td>
+      <td class="px-2 py-1 text-right">{% if r.price.minorista is not None %}${{ r.price.minorista|floatformat:"2g" }}{% else %}—{% endif %}</td>
+      <td class="px-2 py-1 text-right">{% if r.price.mayorista is not None %}${{ r.price.mayorista|floatformat:"2g" }}{% else %}—{% endif %}</td>
+      <td class="px-2 py-1 text-right {% if 'tiendanube' in r.price_diff %}font-semibold text-red-700{% endif %}">{% if r.price.tiendanube is not None %}${{ r.price.tiendanube|floatformat:"2g" }}{% else %}—{% endif %}</td>
+      <td class="px-2 py-1 text-right {% if 'mercadolibre' in r.price_diff %}font-semibold text-red-700{% endif %}">{% if r.price.mercadolibre is not None %}${{ r.price.mercadolibre|floatformat:"2g" }}{% if r.ml_prices|length > 1 %} <span class="text-stone-500">(+{{ r.ml_prices|length|add:"-1" }})</span>{% endif %}{% else %}—{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="10" class="px-3 py-6 text-center text-stone-500">Sin resultados.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="mt-2 text-xs text-stone-500">ML Full es otro depósito: no entra en la comparación de stock. Pasá el mouse sobre una celda para ver cuándo se actualizó el dato.</p>
+{% endblock %}

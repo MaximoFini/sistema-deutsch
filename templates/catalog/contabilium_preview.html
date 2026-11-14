@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Vista previa Contabilium · Catálogo{% endblock %}
+{% block content %}
+<a href="{% url 'catalog:contabilium' %}" class="text-sm underline">← Importaciones</a>
+<h1 class="mt-2 text-xl font-semibold">{{ imp.filename }}</h1>
+<p class="mb-4 text-sm text-stone-600">Subido {{ imp.uploaded_at|date:"d/m/Y H:i" }} por {{ imp.uploaded_by }} · estado: <strong>{{ imp.get_status_display }}</strong>
+  · columnas detectadas: {% for field, name in imp.columns.items %}<span class="font-mono text-xs">{{ name }}</span>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+{% with s=imp.summary %}
+<div class="mb-4 grid grid-cols-2 gap-3 text-center text-sm md:grid-cols-6">
+  <div class="rounded border bg-white p-2"><div class="text-stone-500">Filas</div><div class="text-lg">{{ s.total }}</div></div>
+  <div class="rounded border bg-white p-2"><div class="text-stone-500">Coinciden</div><div class="text-lg text-emerald-700">{{ s.matched }}</div></div>
+  <div class="rounded border bg-white p-2"><div class="text-stone-500">Sin coincidir</div><div class="text-lg {% if s.unmatched %}text-amber-700{% endif %}">{{ s.unmatched }}</div></div>
+  <div class="rounded border bg-white p-2"><div class="text-stone-500">Repetidos</div><div class="text-lg {% if s.duplicates %}text-red-700{% endif %}">{{ s.duplicates }}</div></div>
+  <div class="rounded border bg-white p-2"><div class="text-stone-500">Con error</div><div class="text-lg {% if s.errors %}text-red-700{% endif %}">{{ s.errors }}</div></div>
+  <div class="rounded border bg-white p-2"><div class="text-stone-500">Precios may. que cambian</div><div class="text-lg">{% if s.has_wholesale %}{{ s.wholesale_changes }}{% else %}—{% endif %}</div></div>
+</div>
+{% if imp.status == "preview" %}
+<form method="post" action="{% url 'catalog:contabilium_decide' imp.pk %}" class="mb-6 flex gap-3">{% csrf_token %}
+  <button name="action" value="apply" class="rounded bg-stone-900 px-4 py-2 text-sm text-white">Confirmar e importar</button>
+  <button name="action" value="discard" class="rounded border border-stone-300 px-4 py-2 text-sm">Descartar</button>
+</form>
+{% elif s.applied %}
+<p class="mb-6 rounded border border-emerald-200 bg-emerald-50 p-3 text-sm">Aplicada {{ imp.applied_at|date:"d/m/Y H:i" }} por {{ imp.applied_by }}: {{ s.applied.linked }} vinculados, {{ s.applied.unlinked }} sin vincular, {{ s.applied.wholesale_updated }} precios mayoristas actualizados, {{ s.applied.missing }} códigos que ya no vienen.</p>
+{% endif %}
+<div class="grid gap-4 md:grid-cols-2 text-sm">
+  <details class="rounded-lg border bg-white p-3" {% if s.unmatched %}open{% endif %}><summary class="cursor-pointer font-medium">Sin coincidir (primeros 50)</summary>
+    <ul class="mt-2 space-y-0.5 font-mono text-xs">{% for r in s.examples.unmatched %}<li>{{ r.code }} · {{ r.name }}{% if r.barcode %} · {{ r.barcode }}{% endif %}</li>{% empty %}<li class="font-sans text-stone-500">Ninguno</li>{% endfor %}</ul></details>
+  <details class="rounded-lg border bg-white p-3"><summary class="cursor-pointer font-medium">Precios mayoristas que cambian (primeros 50)</summary>
+    <ul class="mt-2 space-y-0.5 font-mono text-xs">{% for r in s.examples.wholesale_changes %}<li>{{ r.sku }}: {{ r.before|default:"—" }} → {{ r.after }}</li>{% empty %}<li class="font-sans text-stone-500">Ninguno</li>{% endfor %}</ul></details>
+  <details class="rounded-lg border bg-white p-3" {% if s.duplicates %}open{% endif %}><summary class="cursor-pointer font-medium">Códigos repetidos</summary>
+    <ul class="mt-2 space-y-0.5 font-mono text-xs">{% for r in s.examples.duplicates %}<li>Línea {{ r.line }}: {{ r.code }}</li>{% empty %}<li class="font-sans text-stone-500">Ninguno</li>{% endfor %}</ul></details>
+  <details class="rounded-lg border bg-white p-3" {% if s.errors %}open{% endif %}><summary class="cursor-pointer font-medium">Filas con error</summary>
+    <ul class="mt-2 space-y-0.5 text-xs">{% for r in s.examples.errors %}<li>Línea {{ r.line }} ({{ r.code }}): {{ r.error }}</li>{% empty %}<li class="text-stone-500">Ninguna</li>{% endfor %}</ul></details>
+</div>
+{% endwith %}
+{% endblock %}
