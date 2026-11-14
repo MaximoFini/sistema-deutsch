@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% load orders fulfillment %}
+{% block title %}Tanda {{ batch.number }} · Sistema Deutsch{% endblock %}
+{% block content %}
+<a href="{% url 'sales:batches' %}" class="text-sm underline">← Tandas</a>
+<div class="mt-2 flex flex-wrap items-center gap-3">
+  <h1 class="text-xl font-semibold">Tanda {{ batch.number }}</h1>
+  {% if batch.status == "open" %}<span class="rounded bg-sky-100 px-2 py-0.5 text-sm font-medium text-sky-900">Abierta</span>{% else %}<span class="rounded bg-stone-200 px-2 py-0.5 text-sm font-medium text-stone-700">Cerrada {{ batch.closed_at|date:"d/m H:i" }}</span>{% endif %}
+  <span class="text-sm text-stone-500">Armada {{ batch.created_at|date:"d/m H:i" }} por {{ batch.created_by.get_short_name }} · {{ picking.orders|length }} pedido{{ picking.orders|length|pluralize }} · {{ picking.units|qty }} unidades</span>
+</div>
+
+<div class="mt-4 flex flex-wrap gap-2">
+  <a href="{% url 'sales:batch_pdf' batch.number %}" target="_blank" rel="noopener" class="inline-flex min-h-[44px] items-center rounded bg-stone-900 px-4 py-2 text-sm font-medium text-white">Imprimir hoja de control (PDF)</a>
+  {% if has_ml and perms.sales.change_order_status %}
+  <form method="post" action="{% url 'sales:batch_labels' batch.number %}" target="_blank" onsubmit="setTimeout(function(){location.reload()},2500)">{% csrf_token %}
+    <button class="min-h-[44px] rounded border border-stone-900 px-4 py-2 text-sm font-medium">Etiquetas de Mercado Libre de la tanda</button>
+  </form>
+  {% endif %}
+  {% if perms.sales.change_order_status %}<a href="{% url 'sales:dispatch' %}" class="inline-flex min-h-[44px] items-center rounded border border-stone-300 px-4 py-2 text-sm">Ir a Despacho</a>{% endif %}
+</div>
+
+{# Lista de picking en pantalla: las tildes son una ayuda visual, se guardan solo en este teléfono/navegador. #}
+<section class="mt-6">
+  <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+    <h2 class="font-semibold">Lista de picking</h2>
+    <button type="button" id="clear-ticks" class="text-xs underline">Borrar tildes</button>
+  </div>
+  <p class="mb-2 text-xs text-stone-500">Tildá lo que vas juntando. Las tildes no cambian el estado de los pedidos.</p>
+  {% if picking.is_empty %}
+    <p class="rounded-lg border border-stone-200 bg-white p-6 text-center text-sm text-stone-500">No quedan productos para juntar en esta tanda.</p>
+  {% else %}
+  <div class="grid gap-2">
+    {% for r in picking.rows %}
+      <label class="flex min-h-[44px] items-start gap-3 rounded-lg border border-stone-200 bg-white p-3">
+        <input type="checkbox" class="tick mt-0.5 h-7 w-7 shrink-0 accent-emerald-700" data-key="{{ r.sku }}">
+        <span class="min-w-0 flex-1">
+          <span class="flex flex-wrap items-baseline justify-between gap-2"><span class="font-mono text-sm font-semibold">{{ r.sku }}</span><span class="text-lg font-semibold">{{ r.total|qty }} u</span></span>
+          <span class="block text-sm">{{ r.description }}</span>
+          <span class="block text-xs text-stone-600">{{ r.destinations_text }}</span>
+        </span>
+      </label>
+    {% endfor %}
+  </div>
+  {% if picking.unknown %}
+    <h3 class="mb-2 mt-4 text-sm font-semibold text-red-800">No está en el catálogo</h3>
+    <p class="mb-2 text-xs text-stone-500">Productos con el SKU y la descripción tal como vinieron del canal.</p>
+    <div class="grid gap-2">
+    {% for r in picking.unknown %}
+      <label class="flex min-h-[44px] items-start gap-3 rounded-lg border border-red-200 bg-white p-3">
+        <input type="checkbox" class="tick mt-0.5 h-7 w-7 shrink-0 accent-emerald-700" data-key="x-{{ r.sku }}-{{ r.description|slugify }}">
+        <span class="min-w-0 flex-1">
+          <span class="flex flex-wrap items-baseline justify-between gap-2"><span class="font-mono text-sm font-semibold">{{ r.sku }}</span><span class="text-lg font-semibold">{{ r.total|qty }} u</span></span>
+          <span class="block text-sm">{{ r.description }} <span class="text-xs text-red-700">(no está en el catálogo)</span></span>
+          <span class="block text-xs text-stone-600">{{ r.destinations_text }}</span>
+        </span>
+      </label>
+    {% endfor %}
+    </div>
+  {% endif %}
+  {% endif %}
+</section>
+
+<section class="mt-6">
+  <h2 class="mb-2 font-semibold">Pedidos de la tanda</h2>
+  <div class="grid gap-3 md:grid-cols-2">
+    {% for r in rows %}{% with o=r.doc %}
+    <div class="rounded-lg border {% if r.cancelled %}border-red-300 bg-red-50{% else %}border-stone-200 bg-white{% endif %} p-3 text-sm">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <a href="{% url 'sales:detail' o.pk %}" class="font-semibold underline">{{ o.channel_reference|default:o }}</a>
+        <span class="rounded px-2 py-0.5 text-xs font-medium {{ o.status|status_classes }}">{{ o.status|status_label }}</span>
+      </div>
+      {% if r.cancelled %}<p class="mt-1 font-semibold text-red-800">Cancelado: devolver la mercadería a la estantería.</p>{% endif %}
+      <p class="mt-1">{{ o.customer|default:"—" }} · {{ o.ship_method|ship_label }}</p>
+      {% if o.deadline %}<p class="text-xs {% if o.deadline <= soon and not r.resolved %}font-semibold text-red-700{% else %}text-stone-600{% endif %}">Despachar antes de {{ o.deadline|date:"d/m H:i" }}</p>{% endif %}
+      <p class="text-xs text-stone-600">{% for l in o.lines.all %}{{ l.quantity|qty }}× {{ l.sku_snapshot|default:l.description_snapshot }}{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+      <div class="mt-2 flex flex-wrap items-center gap-2">
+        {% if r.kind == "envio_nube" %}<span class="text-xs text-stone-600">La etiqueta se imprime desde Tiendanube.</span>{% endif %}
+        {% if r.shipment.label_print_count %}<span class="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">Etiqueta ya impresa ({{ r.shipment.label_print_count }})</span>{% endif %}
+        {% if perms.sales.change_order_status and not r.resolved and batch.status == "open" %}
+          {% if r.kind == "ml" %}
+          <form method="post" action="{% url 'sales:order_label' o.pk %}" target="_blank" onsubmit="setTimeout(function(){location.reload()},2000)">{% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <button class="min-h-[44px] rounded border border-stone-300 px-3 py-2 text-xs">Etiqueta ML</button>
+          </form>
+          {% elif r.kind == "rotulo" %}
+          <a href="{% url 'sales:carrier_label' o.pk %}?next={{ request.path|urlencode }}" class="inline-flex min-h-[44px] items-center rounded border border-stone-300 px-3 py-2 text-xs">Rótulo de transporte</a>
+          {% endif %}
+          {% if not r.cancelled %}
+          <form method="post" action="{% url 'sales:batch_remove' batch.number o.pk %}" onsubmit="return confirm('¿Sacar {{ o.channel_reference|default:o|escapejs }} de la tanda? Si está En preparación vuelve a Nuevo.')">{% csrf_token %}
+            <button class="min-h-[44px] px-3 py-2 text-xs text-red-700 underline">Sacar de la tanda</button>
+          </form>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+    {% endwith %}{% empty %}
+    <p class="text-sm text-stone-500">La tanda no tiene pedidos.</p>
+    {% endfor %}
+  </div>
+</section>
+
+{% if carrier_rows %}
+<section class="mt-6 rounded-lg border border-stone-200 bg-white p-4 text-sm">
+  <h2 class="mb-1 font-semibold">Rótulos de transporte</h2>
+  <p class="mb-2 text-xs text-stone-500">Cada rótulo pide el expreso y la cantidad de bultos.</p>
+  <ul class="space-y-1">
+    {% for r in carrier_rows %}<li><a href="{% url 'sales:carrier_label' r.doc.pk %}?next={{ request.path|urlencode }}" class="underline">{{ r.doc.channel_reference|default:r.doc }}</a>{% if r.shipment.label_print_count %} · ya impreso{% endif %}{% if not r.shipment.address %} · <span class="text-amber-800">sin domicilio cargado</span>{% endif %}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if removed %}
+<section class="mt-6 text-sm">
+  <h2 class="mb-2 font-semibold">Sacados de la tanda</h2>
+  <ul class="space-y-1 text-stone-600">
+    {% for i in removed %}<li><a href="{% url 'sales:detail' i.document_id %}" class="underline">{{ i.document.channel_reference|default:i.document }}</a> · {{ i.removed_at|date:"d/m H:i" }}{% if i.removed_by %} · {{ i.removed_by.get_short_name }}{% endif %}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<script>
+(function () {
+  var prefix = "tanda-{{ batch.number }}:";
+  function get(k) { try { return localStorage.getItem(prefix + k) === "1"; } catch (e) { return false; } }
+  function set(k, v) { try { if (v) { localStorage.setItem(prefix + k, "1"); } else { localStorage.removeItem(prefix + k); } } catch (e) {} }
+  var ticks = Array.prototype.slice.call(document.querySelectorAll("input.tick"));
+  ticks.forEach(function (t) {
+    t.checked = get(t.dataset.key);
+    t.addEventListener("change", function () { set(t.dataset.key, t.checked); });
+  });
+  var clear = document.getElementById("clear-ticks");
+  if (clear) clear.addEventListener("click", function () { ticks.forEach(function (t) { t.checked = false; set(t.dataset.key, false); }); });
+})();
+</script>
+{% endblock %}

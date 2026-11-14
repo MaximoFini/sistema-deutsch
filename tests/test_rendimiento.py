@@ -27,10 +27,15 @@ VARIANTS = 500
 # Presupuestos: conteo real medido + un margen chico (sesión, permisos, mensajes).
 BUDGET = {
     "sales:list": 12,  # medido: 9
-    "sales:detail": 17,  # medido: 14
+    "sales:detail": 17,  # medido: 15 (M5 suma la tanda del pedido)
     "catalog:list": 10,  # medido: 7
     "catalog:channel_stock": 12,  # medido: 9
     "catalog:quality": 14,  # medido: 11
+    # M5 · preparación y despacho
+    "sales:prepare": 11,  # medido: 8
+    "sales:dispatch": 12,  # medido: 9
+    "sales:batches": 10,  # medido: 7
+    "sales:batch_detail": 14,  # medido: 11 (tanda de 30 pedidos)
 }
 
 
@@ -126,8 +131,25 @@ def volume(db):
     return docs
 
 
+def _batch_with_orders(docs, size=30):
+    """Una tanda con `size` pedidos del volumen (para medir el detalle de tanda)."""
+    from apps.accounts.models import User
+    from apps.fulfillment.models import PickBatch, PickBatchOrder
+
+    user = User.objects.create_user(email="tanda@test.local", full_name="Tanda", password="clave-de-test-123")
+    batch = PickBatch.objects.create(number=1, created_by=user)
+    PickBatchOrder.objects.bulk_create(
+        [PickBatchOrder(batch=batch, document=d) for d in docs if d.status == states.PREPARING][:size]
+    )
+    return batch
+
+
 def _url(name, docs):
-    return reverse(name, args=[docs[0].pk]) if name == "sales:detail" else reverse(name)
+    if name == "sales:detail":
+        return reverse(name, args=[docs[0].pk])
+    if name == "sales:batch_detail":
+        return reverse(name, args=[_batch_with_orders(docs).number])
+    return reverse(name)
 
 
 @pytest.mark.parametrize("name", list(BUDGET))

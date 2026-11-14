@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% load orders %}
+{% block title %}Preparar · Sistema Deutsch{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <h1 class="text-xl font-semibold">Preparar</h1>
+    <p class="text-sm text-stone-600">Pedidos nuevos para armar. Marcá los que vas a preparar y tocá «Armar tanda»: pasan a En preparación y se arma la lista de picking.</p>
+  </div>
+  {% if perms.fulfillment.view_pickbatch %}<a href="{% url 'sales:batches' %}" class="rounded border border-stone-300 px-3 py-2 text-sm">Ver tandas</a>{% endif %}
+</div>
+
+<form method="get" class="mb-4 grid grid-cols-2 gap-2 text-sm md:flex md:flex-wrap md:items-end">
+  <select name="canal" class="rounded border border-stone-300 px-2 py-2">
+    <option value="">Todos los canales</option>
+    {% for c in channels %}<option value="{{ c.code }}" {% if f.canal == c.code %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+  </select>
+  <select name="envio" class="rounded border border-stone-300 px-2 py-2">
+    <option value="">Todas las formas de envío</option>
+    {% for code, label in methods %}<option value="{{ code }}" {% if f.envio == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <div class="col-span-2 flex gap-2"><button class="rounded bg-stone-900 px-4 py-2 text-white">Filtrar</button><a href="{% url 'sales:prepare' %}" class="px-2 py-2 underline">Limpiar</a></div>
+</form>
+
+{% if orders %}
+<form method="post" id="prepare-form" class="pb-24 md:pb-0">{% csrf_token %}
+  <label class="mb-2 flex min-h-[44px] items-center gap-3 text-sm">
+    <input type="checkbox" id="check-all" class="h-6 w-6 accent-stone-900"> Marcar todos los que se ven ({{ orders|length }})
+  </label>
+
+  {# Escritorio: tabla #}
+  <div class="hidden overflow-x-auto md:block">
+  <table class="w-full rounded-lg border border-stone-200 bg-white text-sm">
+    <thead class="bg-stone-100 text-left text-stone-600"><tr>
+      <th class="w-12 px-3 py-2"></th><th class="px-3 py-2">Pedido</th><th class="px-3 py-2">Envío</th><th class="px-3 py-2">Límite</th>
+      <th class="px-3 py-2">Comprador</th><th class="px-3 py-2">Productos</th><th class="px-3 py-2">Fecha</th>
+    </tr></thead>
+    <tbody>
+    {% for o in orders %}
+      <tr class="border-t border-stone-100">
+        <td class="px-3 py-2"><input type="checkbox" name="doc" value="{{ o.pk }}" class="pick h-6 w-6 accent-stone-900" aria-label="Preparar {{ o.channel_reference|default:o }}"></td>
+        <td class="px-3 py-2"><a href="{% url 'sales:detail' o.pk %}" class="font-medium underline">{{ o.channel_reference|default:o }}</a><div class="text-xs text-stone-500">{{ o.channel.name }}</div></td>
+        <td class="px-3 py-2 text-xs">{{ o.ship_method|ship_label }}</td>
+        <td class="whitespace-nowrap px-3 py-2 text-xs {% if o.deadline and o.deadline <= soon %}font-semibold text-red-700{% endif %}">{{ o.deadline|date:"d/m H:i"|default:"—" }}</td>
+        <td class="px-3 py-2">{{ o.customer|default:"—" }}</td>
+        <td class="px-3 py-2 font-mono text-xs">{{ o|lines_summary }}</td>
+        <td class="whitespace-nowrap px-3 py-2 text-xs">{{ o.issued_at|date:"d/m H:i" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  {# Celular: tarjetas con casilla grande #}
+  <div class="grid gap-3 md:hidden">
+    {% for o in orders %}
+    <label class="flex gap-3 rounded-lg border border-stone-200 bg-white p-3">
+      <input type="checkbox" name="doc" value="{{ o.pk }}" class="pick mt-1 h-7 w-7 shrink-0 accent-stone-900">
+      <span class="block min-w-0 flex-1">
+        <span class="flex items-center justify-between gap-2"><strong>{{ o.channel_reference|default:o }}</strong><span class="text-xs text-stone-500">{{ o.channel.name }}</span></span>
+        <span class="block text-sm">{{ o.customer|default:"—" }}</span>
+        <span class="block text-xs text-stone-600">{{ o.ship_method|ship_label }} · {{ o|lines_summary }}</span>
+        {% if o.deadline %}<span class="mt-1 block text-xs {% if o.deadline <= soon %}font-semibold text-red-700{% else %}text-stone-600{% endif %}">Despachar antes de {{ o.deadline|date:"d/m H:i" }}</span>{% endif %}
+      </span>
+    </label>
+    {% endfor %}
+  </div>
+
+  <div class="fixed inset-x-0 bottom-0 z-10 border-t border-stone-200 bg-white p-3 md:static md:mt-4 md:border-0 md:bg-transparent md:p-0">
+    <button class="min-h-[48px] w-full rounded bg-stone-900 px-6 py-3 font-medium text-white md:w-auto">Armar tanda (<span id="pick-count">0</span>)</button>
+    <p class="mt-1 hidden text-xs text-stone-500 md:block">Hasta {{ max_batch }} pedidos por tanda.</p>
+  </div>
+</form>
+<script>
+(function () {
+  var form = document.getElementById("prepare-form");
+  var all = document.getElementById("check-all");
+  // Tabla y tarjetas repiten las casillas: se sincronizan por valor y solo se envía una de cada.
+  function boxes() { return Array.prototype.slice.call(form.querySelectorAll("input.pick")); }
+  function sync(value, checked) { boxes().forEach(function (b) { if (b.value === value) b.checked = checked; }); }
+  function count() {
+    var set = {};
+    boxes().forEach(function (b) { if (b.checked) set[b.value] = 1; });
+    document.getElementById("pick-count").textContent = Object.keys(set).length;
+  }
+  boxes().forEach(function (b) { b.addEventListener("change", function () { sync(b.value, b.checked); count(); }); });
+  all.addEventListener("change", function () { boxes().forEach(function (b) { b.checked = all.checked; }); count(); });
+  form.addEventListener("submit", function () {
+    var seen = {};
+    boxes().forEach(function (b) { if (b.checked && seen[b.value]) { b.disabled = true; } else if (b.checked) { seen[b.value] = 1; } });
+  });
+  count();
+})();
+</script>
+{% else %}
+<p class="rounded-lg border border-stone-200 bg-white p-6 text-center text-sm text-stone-500">No hay pedidos nuevos para preparar{% if f.canal or f.envio %} con esos filtros{% endif %}.</p>
+{% endif %}
+{% endblock %}

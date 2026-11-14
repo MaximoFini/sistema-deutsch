@@ -10,6 +10,7 @@ from apps.alerts import services as alerts
 from apps.audit import services as audit
 
 from .models import SalesDocument, Shipment
+from .signals import order_status_changed
 
 NEW, PREPARING, READY = "new", "preparing", "ready"
 DISPATCHED, READY_FOR_PICKUP, DELIVERED = "dispatched", "ready_for_pickup", "delivered"
@@ -162,6 +163,12 @@ def change_status(
             )
         if to == NEW and current == AWAITING_PAYMENT:
             emit_new_order(doc)  # recién ahora hay que prepararlo
+        changed_doc = doc
+        transaction.on_commit(
+            lambda: order_status_changed.send(
+                sender=SalesDocument, document=changed_doc, old=current, new=to, system=system
+            )
+        )
     return True
 
 

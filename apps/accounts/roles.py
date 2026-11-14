@@ -34,6 +34,8 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "sales.add_manual_order",
         "sales.receive_return",
         "sales.mark_return_adjusted",
+        "fulfillment.view_pickbatch",
+        "fulfillment.manage_carriers",
     ],
     DEPOSITO: [
         "alerts.view_alert",
@@ -41,6 +43,7 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "sales.view_salesdocument",
         "sales.change_order_status",
         "sales.receive_return",
+        "fulfillment.view_pickbatch",
     ],
     VENTAS: [
         "alerts.view_alert",
@@ -56,6 +59,7 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "sales.cancel_manual_order",
         "sales.add_manual_order",
         "sales.receive_return",
+        "fulfillment.view_pickbatch",
     ],
     VENDEDOR: ["alerts.view_alert", "catalog.view_variant", "sales.view_salesdocument"],
 }
@@ -88,6 +92,8 @@ PERMISSION_LABELS: dict[str, str] = {
     "sales.add_manual_order": "Cargar y editar pedidos manuales",
     "sales.receive_return": "Registrar devoluciones",
     "sales.mark_return_adjusted": "Marcar devoluciones como ajustadas en Contabilium",
+    "fulfillment.view_pickbatch": "Ver las tandas de preparación y su hoja de picking",
+    "fulfillment.manage_carriers": "Editar la lista de expresos (transportes)",
 }
 
 

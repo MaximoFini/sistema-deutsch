@@ -28,6 +28,12 @@ ACTIONS: dict[str, str] = {
     "return.expected_created": "Devolución esperada cargada",
     "return.received": "Devolución recibida",
     "return.adjusted": "Devolución ajustada en Contabilium",
+    # M5 · preparación y despacho
+    "fulfillment.batch_created": "Tanda de preparación armada",
+    "fulfillment.order_removed": "Pedido sacado de una tanda",
+    "fulfillment.batch_closed": "Tanda de preparación cerrada",
+    "fulfillment.carrier_changed": "Lista de expresos editada",
+    "shipment.label_printed": "Etiqueta o rótulo de envío impreso",
     # M6 · Mercado Libre
     "ml.question_answered": "Respuesta a pregunta de ML",
     "ml.message_sent": "Mensaje enviado en ML",

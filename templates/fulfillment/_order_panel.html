@@ -1,0 +1,18 @@
+{% if batch or kind %}
+<section class="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-stone-200 bg-white p-3 text-sm">
+  {% if batch %}<span>En la <a href="{% url 'sales:batch_detail' batch.number %}" class="font-medium underline">tanda {{ batch.number }}</a></span>{% endif %}
+  {% if kind == "ml" and perms.sales.change_order_status %}
+    <form method="post" action="{% url 'sales:order_label' doc.pk %}" target="_blank" onsubmit="setTimeout(function(){location.reload()},2000)">
+      <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+      <button class="min-h-[44px] rounded bg-stone-900 px-4 py-2 text-white">Imprimir etiqueta de Mercado Libre</button>
+    </form>
+  {% elif kind == "rotulo" and perms.sales.change_order_status %}
+    <a href="{% url 'sales:carrier_label' doc.pk %}" class="inline-flex min-h-[44px] items-center rounded bg-stone-900 px-4 py-2 text-white">Imprimir rótulo de transporte</a>
+  {% elif kind == "envio_nube" %}
+    <span>La etiqueta se imprime desde Tiendanube.{% if tn_url %} <a href="{{ tn_url }}" target="_blank" rel="noopener" class="underline">Abrir el pedido en Tiendanube</a>{% endif %}</span>
+  {% endif %}
+  {% if shipment.label_print_count %}
+    <span class="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">Ya impresa ({{ shipment.label_print_count }} {% if shipment.label_print_count == 1 %}vez{% else %}veces{% endif %}, última {{ shipment.label_printed_at|date:"d/m H:i" }})</span>
+  {% endif %}
+</section>
+{% endif %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Tandas · Sistema Deutsch{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <h1 class="text-xl font-semibold">Tandas de preparación</h1>
+  {% if perms.sales.change_order_status %}<a href="{% url 'sales:prepare' %}" class="rounded bg-stone-900 px-3 py-2 text-sm text-white">Armar una tanda</a>{% endif %}
+</div>
+
+<h2 class="mb-2 font-semibold">Abiertas</h2>
+<div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+  {% for b in open_batches %}
+  <a href="{% url 'sales:batch_detail' b.number %}" class="block min-h-[44px] rounded-lg border border-stone-200 bg-white p-4">
+    <div class="flex items-center justify-between"><strong class="text-lg">Tanda {{ b.number }}</strong><span class="rounded bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-900">Abierta</span></div>
+    <p class="mt-1 text-sm">{{ b.active_count }} de {{ b.order_count }} pedido{{ b.order_count|pluralize }} sin despachar</p>
+    <p class="text-xs text-stone-500">{{ b.created_at|date:"d/m H:i" }} · {{ b.created_by.get_short_name }}</p>
+  </a>
+  {% empty %}
+  <p class="rounded-lg border border-stone-200 bg-white p-6 text-sm text-stone-500 md:col-span-2 lg:col-span-3">No hay tandas abiertas.</p>
+  {% endfor %}
+</div>
+
+<h2 class="mb-2 mt-6 font-semibold">Cerradas en los últimos 7 días</h2>
+<div class="grid gap-2">
+  {% for b in closed_batches %}
+  <a href="{% url 'sales:batch_detail' b.number %}" class="flex min-h-[44px] flex-wrap items-center justify-between gap-2 rounded border border-stone-200 bg-white px-4 py-2 text-sm">
+    <span><strong>Tanda {{ b.number }}</strong> · {{ b.order_count }} pedido{{ b.order_count|pluralize }}</span>
+    <span class="text-xs text-stone-500">Armada {{ b.created_at|date:"d/m H:i" }} · cerrada {{ b.closed_at|date:"d/m H:i" }}</span>
+  </a>
+  {% empty %}
+  <p class="text-sm text-stone-500">Ninguna.</p>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Expresos · Sistema Deutsch{% endblock %}
+{% block content %}
+<h1 class="text-xl font-semibold">Expresos</h1>
+<p class="text-sm text-stone-600">La lista que aparece al imprimir un rótulo de transporte. Si das de baja uno, deja de aparecer pero los pedidos viejos lo conservan.</p>
+
+<form method="post" class="mt-4 flex max-w-xl flex-wrap gap-2">{% csrf_token %}
+  <input type="hidden" name="op" value="add">
+  <input name="name" required maxlength="100" placeholder="Nombre del expreso (ej.: Vía Cargo)" class="min-h-[44px] flex-1 rounded border border-stone-300 px-3 py-2 text-sm">
+  <button class="min-h-[44px] rounded bg-stone-900 px-4 py-2 text-sm font-medium text-white">Agregar</button>
+</form>
+
+<div class="mt-4 grid max-w-xl gap-2">
+  {% for c in carriers %}
+  <div class="flex min-h-[44px] items-center justify-between gap-2 rounded border border-stone-200 bg-white px-3 py-2 text-sm">
+    <span class="{% if not c.is_active %}text-stone-400 line-through{% endif %}">{{ c.name }}</span>
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="op" value="toggle"><input type="hidden" name="id" value="{{ c.pk }}">
+      <button class="min-h-[40px] px-2 text-xs underline {% if c.is_active %}text-red-700{% endif %}">{% if c.is_active %}Dar de baja{% else %}Volver a la lista{% endif %}</button>
+    </form>
+  </div>
+  {% empty %}
+  <p class="rounded border border-stone-200 bg-white p-4 text-sm text-stone-500">Todavía no hay expresos cargados.</p>
+  {% endfor %}
+</div>
+{% endblock %}

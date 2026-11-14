@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load orders audit_tags %}
+{% load orders audit_tags fulfillment %}
 {% block title %}{{ doc.channel_reference|default:doc }} · Pedidos{% endblock %}
 {% block content %}
 <a href="{% url 'sales:list' %}" class="text-sm underline">← Pedidos</a>
@@ -9,6 +9,8 @@
   <span class="text-sm text-stone-500">{{ doc.channel.name }} · {{ doc.issued_at|date:"d/m/Y H:i" }} · interno #{{ doc.number }}</span>
 </div>
 {% if doc.channel_status %}<p class="text-xs text-stone-500">Estado en el canal: <span class="font-mono">{{ doc.channel_status }}</span></p>{% endif %}
+
+{% order_fulfillment doc shipments %}
 
 {% if transitions %}
 <section class="mt-4 rounded-lg border border-stone-200 bg-white p-3">

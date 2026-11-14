@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "apps.pricing",
     "apps.customers",
     "apps.sales",
+    "apps.fulfillment",
     "apps.integrations",
     "apps.conversations",
 ]
@@ -150,6 +151,16 @@ CONTABILIUM_MAX_FILE_MB = 5
 # ── Centro de pedidos (M4) ──
 ORDERS_FLEX_WARNING_MINUTES = env.int("ORDERS_FLEX_WARNING_MINUTES", default=120)
 ORDERS_MANUAL_PENDING_HOURS = env.int("ORDERS_MANUAL_PENDING_HOURS", default=24)
+
+# ── Preparación y despacho (M5) ──
+# Remitente del rótulo de transporte 10×15. Si falta el nombre, el rótulo dice "Deutsch".
+SENDER_NAME = env("SENDER_NAME", default="")
+SENDER_TAX_ID = env("SENDER_TAX_ID", default="")
+SENDER_ADDRESS = env("SENDER_ADDRESS", default="")
+SENDER_PHONE = env("SENDER_PHONE", default="")
+# Enlace al pedido en el admin de Tiendanube; {id} = id del pedido en TN. Vacía: solo el texto.
+TN_ADMIN_ORDER_URL = env("TN_ADMIN_ORDER_URL", default="")
+FULFILLMENT_MAX_BATCH = env.int("FULFILLMENT_MAX_BATCH", default=60)
 
 SENTRY_DSN = env("SENTRY_DSN", default="")
 ENVIRONMENT_NAME = env("ENVIRONMENT_NAME", default="local")

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load orders %}
+{% block title %}Despacho · Sistema Deutsch{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="text-xl font-semibold">Despacho</h1>
+  <p class="text-sm text-stone-600">Marcá los pedidos y avanzalos de estado. En pedidos de Tiendanube, el cambio se informa a Tiendanube y el cliente recibe el aviso.</p>
+</div>
+
+<nav class="mb-4 flex flex-wrap gap-2 text-sm">
+  {% for g in groups %}<a href="#grupo-{{ g.status }}" class="rounded border border-stone-300 bg-white px-3 py-2">{{ g.title }} ({{ g.rows|length }})</a>{% endfor %}
+</nav>
+
+{% for g in groups %}
+<section id="grupo-{{ g.status }}" class="mb-8">
+  <h2 class="mb-2 text-lg font-semibold">{{ g.title }} <span class="text-sm font-normal text-stone-500">· {{ g.rows|length }}</span></h2>
+  {% if g.rows %}
+  <form method="post" class="group-form pb-28 md:pb-0">{% csrf_token %}
+    <label class="mb-2 flex min-h-[44px] items-center gap-3 text-sm">
+      <input type="checkbox" class="check-all h-6 w-6 accent-stone-900"> Marcar todos
+    </label>
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {% for r in g.rows %}{% with o=r.doc %}
+      <div class="rounded-lg border border-stone-200 bg-white p-3 text-sm">
+        <label class="flex gap-3">
+          <input type="checkbox" name="doc" value="{{ o.pk }}" class="pick mt-1 h-7 w-7 shrink-0 accent-stone-900">
+          <span class="block min-w-0 flex-1">
+            <span class="flex flex-wrap items-center justify-between gap-2"><strong>{{ o.channel_reference|default:o }}</strong><span class="text-xs text-stone-500">{{ o.channel.name }}{% if r.batch %} · tanda {{ r.batch }}{% endif %}</span></span>
+            <span class="block">{{ o.customer|default:"—" }}</span>
+            <span class="block text-xs text-stone-600">{{ o.ship_method|ship_label }} · {{ o|lines_summary }}</span>
+            {% if o.deadline %}<span class="block text-xs {% if o.deadline <= soon %}font-semibold text-red-700{% else %}text-stone-600{% endif %}">Despachar antes de {{ o.deadline|date:"d/m H:i" }}</span>{% endif %}
+            {% if g.status == "ready" %}<span class="block text-xs font-medium text-stone-700">Va a: {% if r.pickup %}Listo para retirar{% else %}Despachado{% endif %}</span>{% endif %}
+          </span>
+        </label>
+        <div class="mt-2 flex flex-wrap items-center gap-2 pl-10">
+          <a href="{% url 'sales:detail' o.pk %}" class="text-xs underline">Ver pedido</a>
+          {% if r.kind == "rotulo" %}<a href="{% url 'sales:carrier_label' o.pk %}?next={{ request.path|urlencode }}" class="text-xs underline">Rótulo</a>{% endif %}
+          {% if r.kind == "envio_nube" %}<span class="text-xs text-stone-500">Etiqueta desde Tiendanube</span>{% endif %}
+          {% if r.shipment.label_print_count %}<span class="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">Etiqueta impresa ({{ r.shipment.label_print_count }})</span>{% endif %}
+        </div>
+        {% if g.status == "ready" and not r.pickup and r.kind != "ml" %}
+        <label class="mt-2 block pl-10 text-xs text-stone-600">N.º de guía o seguimiento (opcional)
+          <input name="tracking_{{ o.pk }}" value="{{ r.shipment.tracking_number }}" class="mt-1 min-h-[40px] w-full rounded border border-stone-300 px-2 py-1 text-sm text-stone-900">
+        </label>
+        {% endif %}
+      </div>
+      {% endwith %}{% endfor %}
+    </div>
+    <div class="fixed inset-x-0 bottom-0 z-10 hidden gap-2 border-t border-stone-200 bg-white p-3 md:static md:mt-3 md:flex md:border-0 md:bg-transparent md:p-0 action-bar">
+      <button name="action" value="{{ g.action }}" class="min-h-[48px] flex-1 rounded bg-stone-900 px-5 py-3 font-medium text-white md:flex-none">{{ g.button }} (<span class="pick-count">0</span>)</button>
+      {% if g.status != "ready_for_pickup" %}
+      <button name="action" value="etiquetas" formtarget="_blank" onclick="setTimeout(function(){location.reload()},2500)" class="min-h-[48px] rounded border border-stone-900 bg-white px-4 py-3 text-sm font-medium">Etiquetas ML de los marcados</button>
+      {% endif %}
+    </div>
+  </form>
+  {% else %}
+  <p class="rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-500">No hay pedidos en «{{ g.title }}».</p>
+  {% endif %}
+</section>
+{% endfor %}
+
+<script>
+(function () {
+  document.querySelectorAll("form.group-form").forEach(function (form) {
+    var picks = Array.prototype.slice.call(form.querySelectorAll("input.pick"));
+    var bar = form.querySelector(".action-bar");
+    function update() {
+      var n = picks.filter(function (p) { return p.checked; }).length;
+      form.querySelectorAll(".pick-count").forEach(function (el) { el.textContent = n; });
+      // En el celular la barra de acciones aparece fija abajo solo si hay algo marcado.
+      bar.classList.toggle("flex", n > 0);
+      bar.classList.toggle("hidden", n === 0);
+    }
+    picks.forEach(function (p) { p.addEventListener("change", update); });
+    form.querySelector(".check-all").addEventListener("change", function (e) {
+      picks.forEach(function (p) { p.checked = e.target.checked; });
+      update();
+    });
+    update();
+  });
+})();
+</script>
+{% endblock %}

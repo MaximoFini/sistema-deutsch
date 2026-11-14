@@ -158,6 +158,9 @@ class Shipment(TimeStampedModel):
     label_file = models.FileField("etiqueta", upload_to="etiquetas/%Y/%m/", null=True, blank=True)
     shipped_at = models.DateTimeField("despachado", null=True, blank=True)
     address = models.JSONField("domicilio de entrega", null=True, blank=True)  # snapshot del canal
+    packages = models.PositiveSmallIntegerField("bultos", null=True, blank=True)  # rótulo de transporte
+    label_printed_at = models.DateTimeField("etiqueta impresa", null=True, blank=True)
+    label_print_count = models.PositiveSmallIntegerField("veces impresa", default=0)
 
     class Meta:
         verbose_name = "envío"
