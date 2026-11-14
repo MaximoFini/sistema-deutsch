@@ -3,13 +3,14 @@
 from datetime import timedelta
 
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 from procrastinate.contrib.django import app
 
 from apps.alerts import services as alerts
 
-from . import states
-from .models import Payment, SalesDocument, Shipment
+from . import payments, states
+from .models import SalesDocument, Shipment
 
 DEADLINE_METHODS = [Shipment.Method.ME_FLEX, Shipment.Method.ME_COLECTA]
 NOT_DISPATCHED = [states.NEW, states.PREPARING, states.READY, states.AWAITING_CUSTOMER]
@@ -46,13 +47,20 @@ def check_manual_pending(now=None) -> int:
     now = now or timezone.now()
     older = now - timedelta(hours=settings.ORDERS_MANUAL_PENDING_HOURS)
     count = 0
-    docs = SalesDocument.objects.filter(
-        channel__code="manual",
-        doc_type=SalesDocument.DocType.ORDER,
-        issued_at__lte=older,
-    ).exclude(status=states.CANCELLED)
+    # Solo los que todavía deben cobro o factura (no toda la historia de pedidos manuales).
+    docs = (
+        payments.annotate_paid(
+            SalesDocument.objects.filter(
+                channel__code="manual",
+                doc_type=SalesDocument.DocType.ORDER,
+                issued_at__lte=older,
+            ).exclude(status=states.CANCELLED)
+        )
+        .filter(~payments.paid_q() | Q(invoiced_in_contabilium=False))
+        .select_related("channel")
+    )
     for doc in docs:
-        unpaid = not doc.payments.filter(status=Payment.Status.CONFIRMED).exists() and doc.total > 0
+        unpaid = not payments.is_paid(doc)
         for reason, missing in (("pago", unpaid), ("factura", not doc.invoiced_in_contabilium)):
             if missing and alerts.emit(
                 "orders.manual_pending",
@@ -65,7 +73,7 @@ def check_manual_pending(now=None) -> int:
     return count
 
 
-@app.periodic(cron="*/10 * * * *")
+@app.periodic(cron="*/5 * * * *")
 @app.task(queue="default", queueing_lock="orders_watch")
 def orders_watch(timestamp: int):
     check_flex_due()

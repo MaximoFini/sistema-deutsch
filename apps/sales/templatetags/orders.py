@@ -1,6 +1,6 @@
 from django import template
 
-from apps.sales import states
+from apps.sales import payments, states
 from apps.sales.models import Shipment
 
 register = template.Library()
@@ -33,7 +33,7 @@ def ship_label(method: str) -> str:
 
 @register.filter
 def is_paid(order) -> bool:
-    return order.total <= 0 or (order.paid_amount or 0) >= order.total
+    return payments.is_paid(order)
 
 
 @register.filter

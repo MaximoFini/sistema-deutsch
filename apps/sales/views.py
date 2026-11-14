@@ -2,8 +2,8 @@ from datetime import datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
-from django.db.models import DecimalField, F, OuterRef, Q, Subquery, Sum, Value
-from django.db.models.functions import Coalesce
+from django.db.models import F, OuterRef, Q, Subquery
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
@@ -15,7 +15,7 @@ from apps.catalog.models import Variant
 from apps.customers.models import Customer
 from apps.integrations.models import Channel
 
-from . import manual, returns, states
+from . import manual, payments, returns, states
 from .models import Payment, ReturnInfo, SalesDocument, Shipment
 
 ORDER = SalesDocument.DocType.ORDER
@@ -29,29 +29,27 @@ def _date(value: str):
 
 
 def orders_queryset():
-    paid = (
-        Payment.objects.filter(document=OuterRef("pk"), status=Payment.Status.CONFIRMED)
-        .values("document")
-        .annotate(s=Sum("amount"))
-        .values("s")
-    )
     deadline = (
         Shipment.objects.filter(document=OuterRef("pk"), dispatch_deadline__isnull=False)
         .order_by("dispatch_deadline")
         .values("dispatch_deadline")[:1]
     )
     method = Shipment.objects.filter(document=OuterRef("pk")).order_by("id").values("method")[:1]
-    zero = Value(Decimal(0), output_field=DecimalField(max_digits=14, decimal_places=2))
-    return (
-        SalesDocument.objects.filter(doc_type=ORDER)
-        .select_related("channel", "customer")
-        .annotate(
-            paid_amount=Coalesce(
-                Subquery(paid, output_field=DecimalField(max_digits=14, decimal_places=2)), zero
-            ),
-            deadline=Subquery(deadline),
-            ship_method=Subquery(method),
-        )
+    return payments.annotate_paid(
+        SalesDocument.objects.filter(doc_type=ORDER).select_related("channel", "customer")
+    ).annotate(deadline=Subquery(deadline), ship_method=Subquery(method))
+
+
+def search_orders(qs, q: str):
+    """Búsqueda por comprador (nombre, razón social, email) o referencia del pedido."""
+    q = (q or "").strip()
+    if not q:
+        return qs
+    return qs.filter(
+        Q(customer__legal_name__icontains=q)
+        | Q(customer__trade_name__icontains=q)
+        | Q(customer__email__icontains=q)
+        | Q(channel_reference__icontains=q)
     )
 
 
@@ -76,19 +74,13 @@ class OrderListView(PanelPermissionRequiredMixin, ListView):
             qs = qs.filter(issued_at__gte=timezone.make_aware(datetime.combine(d, time.min), tz))
         if d := _date(p.get("hasta")):
             qs = qs.filter(issued_at__lte=timezone.make_aware(datetime.combine(d, time.max), tz))
-        if q := (p.get("comprador") or "").strip():
-            qs = qs.filter(
-                Q(customer__legal_name__icontains=q)
-                | Q(customer__trade_name__icontains=q)
-                | Q(customer__email__icontains=q)
-                | Q(channel_reference__icontains=q)
-            )
+        qs = search_orders(qs, p.get("comprador"))
         if sku := (p.get("sku") or "").strip():
             qs = qs.filter(lines__sku_snapshot__icontains=sku).distinct()
         if p.get("cobro") == "cobrado":
-            qs = qs.filter(Q(paid_amount__gte=F("total")) | Q(total__lte=0))
+            qs = qs.filter(payments.paid_q())
         elif p.get("cobro") == "pendiente":
-            qs = qs.exclude(Q(paid_amount__gte=F("total")) | Q(total__lte=0))
+            qs = qs.exclude(payments.paid_q())
         return qs.order_by(F("deadline").asc(nulls_last=True), "-issued_at").prefetch_related("lines")
 
     def get_context_data(self, **kwargs):
@@ -141,7 +133,7 @@ class OrderDetailView(PanelPermissionRequiredMixin, DetailView):
             is_manual=doc.channel.code == "manual",
             can_edit_manual=doc.channel.code == "manual" and user.has_perm("sales.add_manual_order"),
             payment_methods=manual.PAYMENT_METHODS.items(),
-            paid=manual.is_paid(doc),
+            paid=payments.is_paid(doc),
             now=timezone.now(),
         )
         return ctx
@@ -155,7 +147,7 @@ class OrderStatusView(PanelPermissionRequiredMixin, View):
         doc = get_object_or_404(SalesDocument, pk=pk, doc_type=ORDER)
         to = request.POST.get("to", "")
         try:
-            states.change_status(
+            changed = states.change_status(
                 doc,
                 to,
                 user=request.user,
@@ -164,6 +156,9 @@ class OrderStatusView(PanelPermissionRequiredMixin, View):
                 tracking_url=request.POST.get("tracking_url", "").strip(),
                 request=request,
             )
+            if not changed:
+                messages.info(request, f"El pedido ya estaba en «{states.label(to)}». No se cambió nada.")
+                return redirect("sales:detail", pk=pk)
         except states.TransitionNotAllowed as exc:
             messages.error(request, str(exc))
         else:
@@ -181,9 +176,19 @@ class OrderStatusView(PanelPermissionRequiredMixin, View):
 
 def _dec(value, default=None):
     try:
-        return Decimal(str(value).replace(",", ".")) if str(value).strip() else default
+        number = Decimal(str(value).strip().replace(",", ".")) if str(value).strip() else default
     except (InvalidOperation, ValueError):
         return default
+    if number is not None and not number.is_finite():
+        return default
+    return number
+
+
+def _int(value) -> int | None:
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
 
 
 class ManualOrderCreateView(PanelPermissionRequiredMixin, View):
@@ -205,7 +210,9 @@ class ManualOrderCreateView(PanelPermissionRequiredMixin, View):
         p = request.POST
         try:
             if p.get("customer_id"):
-                customer = get_object_or_404(Customer, pk=p["customer_id"])
+                customer = Customer.objects.filter(pk=_int(p["customer_id"])).first()
+                if customer is None:
+                    raise manual.ManualOrderError("No encontramos ese cliente. Buscalo de nuevo.")
             else:
                 if not p.get("legal_name", "").strip():
                     raise manual.ManualOrderError("Elegí un cliente o cargá el nombre del cliente nuevo.")
@@ -222,8 +229,22 @@ class ManualOrderCreateView(PanelPermissionRequiredMixin, View):
             ):
                 if not vid:
                     continue
-                variant = get_object_or_404(Variant.objects.select_related("product"), pk=vid)
-                lines.append(manual.ManualLine(variant, _dec(qty, Decimal(0)), _dec(price)))
+                variant = Variant.objects.select_related("product").filter(pk=_int(vid)).first()
+                if variant is None:
+                    raise manual.ManualOrderError(
+                        "Uno de los productos ya no está en el catálogo. Sacalo y buscalo de nuevo."
+                    )
+                unit_price = _dec(price)
+                if unit_price is None and str(price).strip():
+                    raise manual.ManualOrderError(
+                        f"Revisá el precio de {variant.sku}: tiene que ser un número."
+                    )
+                quantity = _dec(qty)
+                if quantity is None and str(qty).strip():
+                    raise manual.ManualOrderError(
+                        f"Revisá la cantidad de {variant.sku}: tiene que ser un número entero."
+                    )
+                lines.append(manual.ManualLine(variant, quantity or Decimal(0), unit_price))
             address = None
             if p.get("street"):
                 address = {
@@ -343,7 +364,28 @@ class ReturnListView(PanelPermissionRequiredMixin, ListView):
         ctx["pending_adjust"] = ReturnInfo.objects.filter(
             received_at__isnull=False, adjusted_in_contabilium=False
         ).count()
+        # Buscador de pedido: para registrar una devolución que llegó sin estar esperada (US-4).
+        q = (self.request.GET.get("pedido") or "").strip()
+        ctx["pedido_q"] = q
+        ctx["order_results"] = (
+            search_orders(
+                SalesDocument.objects.filter(doc_type=ORDER).select_related("channel", "customer"), q
+            ).order_by("-issued_at")[:10]
+            if len(q) >= 2
+            else None
+        )
         return ctx
+
+
+def _return_or_404(pk) -> SalesDocument:
+    doc = get_object_or_404(
+        SalesDocument.objects.select_related("return_info", "related_document"),
+        pk=pk,
+        doc_type=SalesDocument.DocType.RETURN,
+    )
+    if not hasattr(doc, "return_info"):
+        raise Http404("Esta devolución no tiene datos de recepción.")
+    return doc
 
 
 class ReturnReceiveView(PanelPermissionRequiredMixin, View):
@@ -351,17 +393,26 @@ class ReturnReceiveView(PanelPermissionRequiredMixin, View):
     template = "sales/return_receive.html"
 
     def get(self, request, pk):
-        doc = get_object_or_404(SalesDocument, pk=pk, doc_type=SalesDocument.DocType.RETURN)
+        doc = _return_or_404(pk)
         return render(request, self.template, {"ret": doc, "lines": doc.lines.all(), "info": doc.return_info})
 
     def post(self, request, pk):
-        doc = get_object_or_404(SalesDocument, pk=pk, doc_type=SalesDocument.DocType.RETURN)
+        doc = _return_or_404(pk)
         received = []
-        for line in doc.lines.all():
-            qty = _dec(request.POST.get(f"qty_{line.pk}"), Decimal(0))
-            if qty and qty > 0:
-                received.append((line, qty, request.POST.get(f"cond_{line.pk}", "")))
         try:
+            for line in doc.lines.all():
+                raw = (request.POST.get(f"qty_{line.pk}") or "").strip()
+                if not raw:
+                    continue
+                qty = _dec(raw)
+                if qty is None:
+                    raise returns.ReturnError(
+                        f"Revisá la cantidad de {line.sku_snapshot}: tiene que ser un número entero."
+                    )
+                if qty == 0:
+                    continue  # no llegó ese producto
+                returns.validate_quantity(line, qty)
+                received.append((line, qty, request.POST.get(f"cond_{line.pk}", "")))
             if not received:
                 raise returns.ReturnError("Indicá la cantidad recibida de al menos un producto.")
             returns.receive(
@@ -387,10 +438,15 @@ class ReturnCreateExpectedView(PanelPermissionRequiredMixin, View):
 
     def post(self, request, pk):
         order = get_object_or_404(SalesDocument, pk=pk, doc_type=ORDER)
-        doc = returns.create_expected(order, user=request.user, request=request)
+        doc, created = returns.get_or_create_expected(order, user=request.user, request=request)
         if request.POST.get("receive_now") == "1":
             return redirect("sales:return_receive", pk=doc.pk)
-        messages.success(request, "Devolución esperada cargada.")
+        if created:
+            messages.success(request, "Devolución esperada cargada.")
+        else:
+            messages.info(
+                request, "Este pedido ya tenía una devolución esperada sin recibir. No se cargó otra."
+            )
         return redirect("sales:detail", pk=pk)
 
 

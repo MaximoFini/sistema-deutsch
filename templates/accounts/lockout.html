@@ -1,0 +1,8 @@
+{% extends "accounts/_auth_base.html" %}
+{% block title %}Ingreso bloqueado · Sistema Deutsch{% endblock %}
+{% block auth %}
+<h1 class="text-lg font-semibold">Ingreso bloqueado por un rato</h1>
+<p class="mt-2 text-sm text-stone-600">Por seguridad bloqueamos el ingreso por 30 minutos porque hubo varios intentos con la contraseña equivocada.</p>
+<p class="mt-2 text-sm text-stone-600">Esperá y probá de nuevo. Si no te acordás la contraseña, podés pedir una nueva.</p>
+<a href="{% url 'accounts:password_reset' %}" class="mt-4 block text-center text-sm text-stone-600 underline">Olvidé mi contraseña</a>
+{% endblock %}

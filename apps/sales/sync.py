@@ -5,15 +5,14 @@ leen hechos genéricos del documento: no hay lógica de estados dentro de los ad
 """
 
 from dataclasses import dataclass
-from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Sum
 
 from apps.alerts import services as alerts
+from apps.inventory.models import StockLevel
 
-from . import states
-from .models import Payment, SalesDocument, Shipment
+from . import payments, states
+from .models import SalesDocument, Shipment
 
 
 @dataclass
@@ -27,16 +26,13 @@ class Facts:
 
 def facts(doc: SalesDocument) -> Facts:
     channel_status = (doc.channel_status or "").lower()
-    confirmed = doc.payments.filter(status=Payment.Status.CONFIRMED).aggregate(s=Sum("amount"))[
-        "s"
-    ] or Decimal(0)
     shipments = list(doc.shipments.all())
     tn_shipping = channel_status.split("/")[-1] if doc.channel.code == "tiendanube" else ""
     return Facts(
         # Solo si TODO el pedido está cancelado: "cancelled/…" (TN) o "cancelled" (ML, todas las órdenes
         # del pack). Una cancelación parcial de un pack ("cancelled,paid") no cancela el pedido.
         cancelled=channel_status.split("/")[0].split("+")[0] == "cancelled",
-        paid=doc.total <= 0 or confirmed >= doc.total,
+        paid=payments.is_paid(doc),
         delivered=any(s.status == "delivered" for s in shipments) or tn_shipping == "delivered",
         full=any(s.method == Shipment.Method.ME_FULL for s in shipments),
         claim_open=doc.claims.filter(status="opened").exists(),
@@ -48,7 +44,11 @@ def _target(doc: SalesDocument, f: Facts, created: bool) -> tuple[str | None, st
     status = doc.status
     if f.cancelled and status not in states.FINAL:
         return states.CANCELLED, f"Cancelado en {name}"
-    if f.delivered and status not in states.FINAL:
+    # Con reclamo abierto (o todavía en Con reclamo) no se pasa a Entregado: si no, el pedido
+    # oscila Con reclamo → Entregado → Con reclamo en cada sincronización. Al cerrarse el reclamo
+    # vuelve al estado anterior y recién ahí corre esta regla.
+    in_claim = f.claim_open or status == states.CLAIM
+    if f.delivered and status not in states.FINAL and not in_claim:
         return states.DELIVERED, f"Entregado según {name}"
     if f.claim_open and status not in (states.CLAIM, states.CANCELLED):
         return states.CLAIM, "Reclamo abierto"
@@ -106,10 +106,17 @@ def check_stock(doc: SalesDocument) -> None:
     if doc.shipments.filter(method=Shipment.Method.ME_FULL).exists():
         return
     problems = []
-    for line in doc.lines.select_related("variant"):
-        if line.variant is None:
-            continue  # SKU desconocido: ya lo alerta la integración
-        level = line.variant.stock_levels.first()
+    # Las líneas con SKU desconocido (sin variante) ya las alerta la integración.
+    lines = [ln for ln in doc.lines.select_related("variant") if ln.variant is not None]
+    # Se mira el depósito por defecto (con varios depósitos, `first()` podía tomar cualquiera).
+    levels = {
+        lv.variant_id: lv
+        for lv in StockLevel.objects.filter(
+            warehouse__is_default=True, variant_id__in=[ln.variant_id for ln in lines]
+        )
+    }
+    for line in lines:
+        level = levels.get(line.variant_id)
         if level is None or (level.on_hand - level.reserved) < 0:
             available = (
                 "sin stock registrado" if level is None else f"disponible {level.on_hand - level.reserved:g}"

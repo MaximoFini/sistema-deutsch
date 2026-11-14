@@ -32,6 +32,11 @@ class OAuthError(Exception):
     pass
 
 
+NOT_CONFIGURED = "La app de Mercado Libre todavía no está configurada en el sistema. Avisale a Kei Software."
+CODE_REJECTED = "La autorización venció o ya se usó: tocá Conectar de nuevo."
+UNAVAILABLE = "Mercado Libre no responde. Probá en unos minutos."
+
+
 class TokenRevoked(Exception):
     """El refresh token venció o fue revocado: hay que volver a autorizar."""
 
@@ -46,7 +51,8 @@ def new_state() -> str:
 
 def authorize_url(state: str) -> str:
     if not (settings.ML_APP_ID and settings.ML_REDIRECT_URI):
-        raise OAuthError("Faltan ML_APP_ID o ML_REDIRECT_URI en la configuración.")
+        logger.warning("Falta ML_APP_ID o ML_REDIRECT_URI en la configuración")
+        raise OAuthError(NOT_CONFIGURED)
     query = urlencode(
         {
             "response_type": "code",
@@ -64,7 +70,10 @@ def parse_return_url(url: str) -> tuple[str, str]:
     code = (query.get("code") or [""])[0]
     state = (query.get("state") or [""])[0]
     if not code:
-        raise OAuthError("La URL pegada no tiene el código de autorización (parámetro code).")
+        raise OAuthError(
+            "La dirección que pegaste no es la correcta. Copiá la dirección completa de la página a la que "
+            "volvió el navegador después de autorizar."
+        )
     return code, state
 
 
@@ -91,14 +100,19 @@ def exchange_code(code: str) -> dict:
             {"grant_type": "authorization_code", "code": code, "redirect_uri": settings.ML_REDIRECT_URI}
         )
     except httpx.TransportError as exc:
-        raise OAuthError(f"No se pudo contactar a Mercado Libre: {exc}") from exc
+        logger.warning("No se pudo contactar a Mercado Libre para el token: %s", exc)
+        raise OAuthError(UNAVAILABLE) from exc
+    if response.status_code >= 500:
+        logger.warning("Mercado Libre respondió %s al pedir el token", response.status_code)
+        raise OAuthError(UNAVAILABLE)
     if response.status_code != 200:
         detail = (
             response.json().get("message", "")
             if response.headers.get("content-type", "").startswith("application/json")
             else ""
         )
-        raise OAuthError(f"Mercado Libre rechazó el código ({response.status_code}). {detail}".strip())
+        logger.warning("Mercado Libre rechazó el código (%s): %s", response.status_code, detail)
+        raise OAuthError(CODE_REJECTED)
     return response.json()
 
 

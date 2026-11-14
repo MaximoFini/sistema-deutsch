@@ -98,6 +98,7 @@ AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = 0.5  # horas
 AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
 AXES_USERNAME_FORM_FIELD = "username"
+AXES_LOCKOUT_TEMPLATE = "accounts/lockout.html"  # mensaje en castellano (no el de django-axes)
 
 LANGUAGE_CODE = "es-ar"
 TIME_ZONE = "America/Argentina/Buenos_Aires"

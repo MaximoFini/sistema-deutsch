@@ -3,6 +3,24 @@
 {% block content %}
 <a href="{% url 'sales:list' %}" class="text-sm underline">← Pedidos</a>
 <h1 class="mb-3 mt-2 text-xl font-semibold">Devoluciones</h1>
+<section class="mb-4 rounded-lg border border-stone-200 bg-white p-3 text-sm">
+  <p class="mb-2 font-medium">¿Llegó una devolución que no estaba esperada?</p>
+  <form method="get" class="flex flex-wrap gap-2">
+    <input type="hidden" name="vista" value="{{ vista }}">
+    <input type="search" name="pedido" value="{{ pedido_q }}" placeholder="Buscá el pedido: comprador o n.º (ej. TN #1234)" class="w-80 max-w-full rounded border border-stone-300 px-2 py-2">
+    <button class="rounded bg-stone-900 px-4 py-2 text-white">Buscar pedido</button>
+  </form>
+  {% if order_results is not None %}
+    <ul class="mt-2 space-y-1">
+    {% for o in order_results %}
+      <li><a href="{% url 'sales:detail' o.pk %}" class="font-medium underline">{{ o.channel_reference|default:o }}</a> <span class="text-stone-500">· {{ o.channel.name }} · {{ o.customer|default:"" }} · {{ o.issued_at|date:"d/m/Y" }}</span></li>
+    {% empty %}
+      <li class="text-stone-500">No encontramos pedidos con «{{ pedido_q }}». Probá con otro dato.</li>
+    {% endfor %}
+    </ul>
+    {% if order_results %}<p class="mt-2 text-xs text-stone-500">Abrí el pedido y tocá «Llegó una devolución».</p>{% endif %}
+  {% elif pedido_q %}<p class="mt-2 text-xs text-stone-500">Escribí al menos 2 letras o números.</p>{% endif %}
+</section>
 <div class="mb-4 flex gap-2 text-sm">
   <a href="?vista=esperadas" class="rounded-full border px-3 py-1 {% if vista != 'recibidas' %}bg-stone-900 text-white{% endif %}">Esperadas</a>
   <a href="?vista=recibidas" class="rounded-full border px-3 py-1 {% if vista == 'recibidas' %}bg-stone-900 text-white{% endif %}">Recibidas{% if pending_adjust %} · {{ pending_adjust }} sin ajustar{% endif %}</a>

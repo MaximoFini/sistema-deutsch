@@ -49,6 +49,7 @@ class SalesDocument(TimeStampedModel):
         verbose_name_plural = "documentos de venta"
         ordering = ["-issued_at", "-id"]
         constraints = [models.UniqueConstraint(fields=["doc_type", "number"], name="unique_doc_number")]
+        indexes = [models.Index(fields=["doc_type", "-issued_at"], name="salesdoc_type_issued_idx")]
         permissions = [
             ("change_order_status", "Puede cambiar el estado interno de un pedido"),
             ("cancel_manual_order", "Puede cancelar pedidos manuales"),
@@ -161,6 +162,8 @@ class Shipment(TimeStampedModel):
     class Meta:
         verbose_name = "envío"
         verbose_name_plural = "envíos"
+        # Lista de pedidos: ordena por la fecha límite de despacho de cada documento.
+        indexes = [models.Index(fields=["document", "dispatch_deadline"], name="shipment_doc_deadline_idx")]
 
 
 class ReturnInfo(models.Model):

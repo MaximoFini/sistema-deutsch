@@ -69,6 +69,10 @@ class IntegrationStatusView(PanelPermissionRequiredMixin, TemplateView):
                 done_24h=Count("id", filter=Q(status="done", processed_at__gte=since)),
             )
             last_ok = SyncRun.objects.filter(channel=channel, status=SyncRun.Status.OK).first()
+            last_failed = SyncRun.objects.filter(channel=channel, status=SyncRun.Status.ERROR)
+            if last_ok is not None:
+                last_failed = last_failed.filter(started_at__gt=last_ok.started_at)
+            last_failed = last_failed.first()
             stale = bool(
                 channel.code in (Channel.TIENDANUBE, Channel.MERCADOLIBRE)
                 and registry.get(channel.code)
@@ -81,6 +85,7 @@ class IntegrationStatusView(PanelPermissionRequiredMixin, TemplateView):
                     "has_adapter": registry.get(channel.code) is not None,
                     "counts": counts,
                     "last_ok": last_ok,
+                    "last_failed": last_failed,
                     "stale": stale,
                     "errors": InboundEvent.objects.filter(channel=channel, status="failed")
                     .exclude(last_error="")
@@ -149,7 +154,10 @@ class RetryFailedEventsView(PanelPermissionRequiredMixin, View):
             )
         )
         count = services.retry_failed(actor=request.user, request=request, event_ids=ids)
-        messages.success(request, f"{count} evento(s) reencolados.")
+        messages.success(
+            request,
+            f"Se están reprocesando {count} aviso(s) que habían fallado. En unos minutos se actualiza esta pantalla.",
+        )
         return redirect("integrations:status")
 
 

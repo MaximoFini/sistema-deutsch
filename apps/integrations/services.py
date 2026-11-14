@@ -1,6 +1,7 @@
 """Recepción y procesamiento de eventos de canales (idempotente, con reintentos)."""
 
 import logging
+from datetime import timedelta
 
 from django.db import transaction
 from django.utils import timezone
@@ -8,7 +9,7 @@ from django.utils import timezone
 from apps.alerts import services as alerts
 from apps.audit import services as audit
 
-from . import registry
+from . import errors, registry
 from .models import Channel, ExternalRef, InboundEvent, SyncRun
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ def process(event_id: int) -> None:
             return  # ya procesado, o lo tiene otro worker
         event.status = InboundEvent.Status.PROCESSING
         event.attempts += 1
-        event.save(update_fields=["status", "attempts"])
+        event.save(update_fields=["status", "attempts", "updated_at"])
 
     adapter = registry.get(event.channel.code)
     handler = adapter.handlers.get(event.topic) if adapter else None
@@ -65,7 +66,7 @@ def process(event_id: int) -> None:
         event.status = InboundEvent.Status.IGNORED
         event.last_error = f"Sin manejador para {event.channel.code}:{event.topic}"
         event.processed_at = timezone.now()
-        event.save(update_fields=["status", "last_error", "processed_at"])
+        event.save(update_fields=["status", "last_error", "processed_at", "updated_at"])
         return
 
     try:
@@ -76,17 +77,17 @@ def process(event_id: int) -> None:
         event.last_error = f"{type(exc).__name__}: {exc}"[:2000]
         if event.attempts >= MAX_ATTEMPTS:
             event.status = InboundEvent.Status.FAILED
-            event.save(update_fields=["status", "last_error"])
+            event.save(update_fields=["status", "last_error", "updated_at"])
             alerts.emit(
                 "integration.event_failed",
                 title=f"Falló un evento de {event.channel.name} ({event.topic})",
-                body=f"Se reintentó {event.attempts} veces. Último error: {event.last_error}",
+                body=f"Se reintentó {event.attempts} veces. {errors.friendly(exc)}",
                 link_url="/integraciones/",
                 dedupe_key=f"event:{event.pk}",
             )
         else:
             event.status = InboundEvent.Status.PENDING
-            event.save(update_fields=["status", "last_error"])
+            event.save(update_fields=["status", "last_error", "updated_at"])
             wait = BACKOFF_SECONDS[event.attempts - 1]
             process_event.configure(schedule_in={"seconds": wait}).defer(event_id=event.pk)
         return
@@ -94,7 +95,7 @@ def process(event_id: int) -> None:
     event.status = InboundEvent.Status.DONE
     event.last_error = ""
     event.processed_at = timezone.now()
-    event.save(update_fields=["status", "last_error", "processed_at"])
+    event.save(update_fields=["status", "last_error", "processed_at", "updated_at"])
 
 
 def retry_failed(*, actor, request, event_ids=None) -> int:
@@ -109,9 +110,47 @@ def retry_failed(*, actor, request, event_ids=None) -> int:
         with transaction.atomic():
             event.status = InboundEvent.Status.PENDING
             event.attempts = 0
-            event.save(update_fields=["status", "attempts"])
+            event.save(update_fields=["status", "attempts", "updated_at"])
             audit.record(actor, "integration.event_retried", event, request=request)
             process_event.defer(event_id=event.pk)
+        count += 1
+    return count
+
+
+STUCK_AFTER = timedelta(minutes=15)
+
+
+def _has_queued_job(event_id: int) -> bool:
+    """¿Hay una tarea `process_event` esperando o corriendo para este evento?"""
+    from procrastinate.contrib.django.models import ProcrastinateJob
+
+    from .tasks import process_event
+
+    return ProcrastinateJob.objects.filter(
+        task_name=process_event.name, status__in=["todo", "doing"], args__event_id=event_id
+    ).exists()
+
+
+def requeue_stuck(now=None) -> int:
+    """Reencola eventos trabados (sin cambios hace más de 15 min):
+    - en "procesando": el worker se cayó a mitad de camino;
+    - en "pendiente" sin ninguna tarea en la cola (se perdió la tarea).
+    Un pendiente con reintento programado (backoff) tiene su tarea en la cola y no se toca."""
+    from .tasks import process_event
+
+    limit = (now or timezone.now()) - STUCK_AFTER
+    stuck = InboundEvent.objects.filter(
+        status__in=[InboundEvent.Status.PENDING, InboundEvent.Status.PROCESSING], updated_at__lt=limit
+    ).only("pk", "status")
+    count = 0
+    for event in stuck:
+        if event.status == InboundEvent.Status.PENDING and _has_queued_job(event.pk):
+            continue
+        with transaction.atomic():
+            # Toca updated_at para no reencolarlo de nuevo en la próxima vuelta si sigue en curso.
+            InboundEvent.objects.filter(pk=event.pk).update(updated_at=timezone.now())
+            process_event.defer(event_id=event.pk)
+        logger.warning("Evento %s trabado en %s: se reencoló", event.pk, event.status)
         count += 1
     return count
 

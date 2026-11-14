@@ -23,3 +23,10 @@ def reconcile_all(timestamp: int):
         reconcile_channel.configure(queueing_lock=f"reconcile:{adapter.code}").defer(
             channel_code=adapter.code
         )
+
+
+@app.periodic(cron="*/5 * * * *")
+@app.task(queue="integrations", queueing_lock="requeue_stuck_events")
+def requeue_stuck_events(timestamp: int):
+    """Red de seguridad: reencola eventos trabados en procesando/pendiente hace más de 15 min."""
+    services.requeue_stuck()

@@ -1,0 +1,8 @@
+{# Paginación que conserva los filtros actuales. Recibe page_obj, paginator, querystring y `noun`. #}
+{% if is_paginated %}
+<nav class="mt-3 flex flex-wrap items-center gap-3 text-sm">
+  {% if page_obj.has_previous %}<a class="underline" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a>{% endif %}
+  <span>Página {{ page_obj.number }} de {{ paginator.num_pages }} · {{ paginator.count }} {{ noun }}</span>
+  {% if page_obj.has_next %}<a class="underline" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}">Siguiente</a>{% endif %}
+</nav>
+{% endif %}

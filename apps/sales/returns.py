@@ -55,6 +55,27 @@ def ensure_expected_for_claim(claim) -> SalesDocument | None:
     return _new_return(claim.document, ReturnInfo.Source.ML_CLAIM, claim=claim)
 
 
+def pending_expected(order: SalesDocument) -> SalesDocument | None:
+    """Devolución esperada de este pedido que todavía no se recibió (la más reciente)."""
+    info = (
+        ReturnInfo.objects.filter(document__related_document=order, received_at__isnull=True)
+        .select_related("document")
+        .order_by("-expected_at", "-pk")
+        .first()
+    )
+    return info.document if info else None
+
+
+@transaction.atomic
+def get_or_create_expected(order: SalesDocument, *, user, request=None) -> tuple[SalesDocument, bool]:
+    """Para los botones de la ficha: si el pedido ya tiene una devolución esperada sin recibir, se
+    reutiliza (no se crea otra en cada clic ni quedan esperadas huérfanas). Devuelve (doc, creada)."""
+    existing = pending_expected(order)
+    if existing is not None:
+        return existing, False
+    return create_expected(order, user=user, request=request), True
+
+
 @transaction.atomic
 def create_expected(order: SalesDocument, *, user, lines=None, request=None) -> SalesDocument:
     doc = _new_return(order, ReturnInfo.Source.MANUAL, lines=lines)
@@ -62,6 +83,23 @@ def create_expected(order: SalesDocument, *, user, lines=None, request=None) -> 
         user, "return.expected_created", doc, request=request, after={"pedido": order.channel_reference}
     )
     return doc
+
+
+def validate_quantity(line: SalesLine, quantity) -> None:
+    """Entero, mayor a 0 y no más de lo esperado en esa línea."""
+    sku = line.sku_snapshot or line.description_snapshot
+    try:
+        quantity = Decimal(quantity)
+    except (ArithmeticError, TypeError, ValueError):
+        quantity = None
+    if quantity is None or not quantity.is_finite() or quantity != quantity.to_integral_value():
+        raise ReturnError(f"La cantidad recibida de {sku} tiene que ser un número entero (sin decimales).")
+    if quantity <= 0:
+        raise ReturnError(f"La cantidad recibida de {sku} tiene que ser mayor a 0.")
+    if quantity > line.quantity:
+        raise ReturnError(
+            f"De {sku} se esperaba {Decimal(line.quantity).normalize():f}: no se puede registrar más cantidad que la esperada."
+        )
 
 
 @transaction.atomic
@@ -83,6 +121,7 @@ def receive(
             raise ReturnError("La línea no pertenece a esta devolución.")
         if condition not in ("resellable", "damaged"):
             raise ReturnError("Indicá si cada producto es apto para reventa o está dañado.")
+        validate_quantity(line, quantity)
         line.quantity = Decimal(quantity)
         line.condition = condition
         line.save()

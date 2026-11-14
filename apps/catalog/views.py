@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.db.models import Exists, OuterRef, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -23,6 +24,18 @@ def _search(qs, q: str):
     if not q:
         return qs
     return qs.filter(Q(sku__icontains=q) | Q(barcode__icontains=q) | Q(product__name__icontains=q))
+
+
+def _paginate(request, items, per_page):
+    return Paginator(items, per_page).get_page(request.GET.get("page"))
+
+
+def _querystring(request) -> str:
+    """Filtros actuales sin `page` ni `formato`, para los links de página."""
+    query = request.GET.copy()
+    query.pop("page", None)
+    query.pop("formato", None)
+    return query.urlencode()
 
 
 def _xlsx_response(content: bytes, name: str) -> HttpResponse:
@@ -87,7 +100,7 @@ class VariantDetailView(PanelPermissionRequiredMixin, DetailView):
         ctx["cb_rows"] = [r for r in rows if r.listing.channel.code == "contabilium"]
         ctx["price_minorista"] = pricing.current_price(PriceList.objects.get(code="MINORISTA"), v)
         ctx["price_mayorista"] = pricing.current_price(PriceList.objects.get(code="MAYORISTA"), v)
-        ctx["stock_level"] = v.stock_levels.first()
+        ctx["stock_level"] = v.stock_levels.filter(warehouse__is_default=True).first()
         return ctx
 
 
@@ -231,34 +244,46 @@ class ContabiliumDecisionView(PanelPermissionRequiredMixin, View):
 class ChannelStockView(PanelPermissionRequiredMixin, TemplateView):
     permission_required = "catalog.view_channel_stock"
     template_name = "catalog/channel_stock.html"
+    paginate_by = 100
 
-    def rows(self):
-        qs = _search(
+    def variants(self):
+        return _search(
             Variant.objects.filter(is_active=True).order_by("product__name", "sku"), self.request.GET.get("q")
         )
-        rows = channel_view.build_rows(qs)
+
+    def rows(self):
+        rows = channel_view.build_rows(self.variants())
         if self.request.GET.get("diferencias"):
             rows = [r for r in rows if r.has_diff]
         return rows
 
     def get(self, request, *args, **kwargs):
-        if request.GET.get("formato") == "xlsx":
+        if request.GET.get("formato") == "xlsx":  # el Excel exporta todo, sin paginar
             return _xlsx_response(channel_view.export_xlsx(self.rows()), "stock-precios")
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
+        # El conteo de diferencias necesita todas las filas (se calculan en memoria, pocas consultas);
+        # lo pesado era dibujar miles de filas: se muestran de a 100.
         rows = self.rows()
+        diff_count = len(rows) if self.request.GET.get("diferencias") else sum(1 for r in rows if r.has_diff)
+        page = _paginate(self.request, rows, self.paginate_by)
         return {
-            "rows": rows,
+            "rows": page.object_list,
+            "page_obj": page,
+            "paginator": page.paginator,
+            "is_paginated": page.paginator.num_pages > 1,
+            "querystring": _querystring(self.request),
             "q": self.request.GET.get("q", ""),
             "diferencias": self.request.GET.get("diferencias", ""),
-            "diff_count": sum(1 for r in rows if r.has_diff),
+            "diff_count": diff_count,
         }
 
 
 class QualityView(PanelPermissionRequiredMixin, TemplateView):
     permission_required = "catalog.view_quality"
     template_name = "catalog/quality.html"
+    paginate_by = 100
 
     def issues(self):
         items = quality.find_issues()
@@ -282,8 +307,13 @@ class QualityView(PanelPermissionRequiredMixin, TemplateView):
         counts = {}
         for i in items:
             counts.setdefault(i.code, {"label": i.title, "severity": i.severity, "count": 0})["count"] += 1
+        page = _paginate(self.request, filtered, self.paginate_by)
         return {
-            "issues": filtered,
+            "issues": page.object_list,
+            "page_obj": page,
+            "paginator": page.paginator,
+            "is_paginated": page.paginator.num_pages > 1,
+            "querystring": _querystring(self.request),
             "counts": counts,
             "total": len(items),
             "critical": sum(1 for i in items if i.severity == quality.CRITICAL),

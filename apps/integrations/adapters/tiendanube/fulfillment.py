@@ -11,6 +11,7 @@ from procrastinate.contrib.django import app
 
 from apps.alerts import services as alerts
 from apps.audit import services as audit
+from apps.integrations import errors
 from apps.integrations.http import ChannelHTTPError
 from apps.integrations.models import ExternalRef
 from apps.sales.models import SalesDocument
@@ -20,6 +21,7 @@ from .client import CHANNEL, TiendanubeClient
 logger = logging.getLogger(__name__)
 
 PACKED, DISPATCHED, DELIVERED = "packed", "dispatched", "delivered"
+ACTION_LABELS = {PACKED: "Listo", DISPATCHED: "Despachado", DELIVERED: "Entregado"}
 ORDER = ["UNPACKED", "IN_PREPARATION", "PACKED", "DISPATCHED", "READY_FOR_PICKUP", "DELIVERED"]
 MAX_ATTEMPTS = 5
 BACKOFF_SECONDS = [60, 300, 1500, 7200]
@@ -123,8 +125,8 @@ def tn_fulfillment_update(
         else:
             alerts.emit(
                 "integration.write_failed",
-                title=f"No se pudo marcar como «{action}» el pedido TN #{ref.extra.get('number')}",
-                body=f"Se reintentó {attempt} veces. Último error: {exc}",
+                title=f"No se pudo marcar como «{ACTION_LABELS.get(action, action)}» el pedido TN #{ref.extra.get('number')}",
+                body=f"Se reintentó {attempt} veces. {errors.friendly(exc)}",
                 link_url="/integraciones/",
                 dedupe_key=f"tn-fulfillment:{document_id}:{action}",
             )

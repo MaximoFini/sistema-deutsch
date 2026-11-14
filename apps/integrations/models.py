@@ -116,6 +116,8 @@ class InboundEvent(models.Model):
     attempts = models.PositiveSmallIntegerField("intentos", default=0)
     last_error = models.TextField("último error", blank=True)
     processed_at = models.DateTimeField("procesado", null=True, blank=True)
+    # Último cambio de estado: detecta eventos trabados en "procesando" si un worker se cae.
+    updated_at = models.DateTimeField("último cambio", auto_now=True, db_index=True)
 
     class Meta:
         verbose_name = "evento recibido"

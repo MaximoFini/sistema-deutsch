@@ -48,7 +48,7 @@ class CallbackView(PanelPermissionRequiredMixin, View):
         try:
             report = oauth.connect(code=code, actor=request.user, request=request)
         except oauth.OAuthError as exc:
-            messages.error(request, f"No se pudo conectar Tiendanube: {exc}")
+            messages.error(request, f"No se pudo conectar Tiendanube. {exc}")
             return redirect("integrations:status")
         from .tasks import tn_import_catalog, tn_import_orders
 
@@ -76,10 +76,16 @@ class ImportView(PanelPermissionRequiredMixin, View):
 
         if kind == "catalogo":
             tn_import_catalog.defer()
-            messages.success(request, "Importación del catálogo de Tiendanube encolada.")
+            messages.success(
+                request,
+                "Empezó la importación del catálogo de Tiendanube. Puede tardar unos minutos; los datos van apareciendo solos.",
+            )
         elif kind == "pedidos":
             tn_import_orders.defer()
-            messages.success(request, "Importación de pedidos de Tiendanube encolada.")
+            messages.success(
+                request,
+                "Empezó la importación de pedidos de Tiendanube. Puede tardar unos minutos; los datos van apareciendo solos.",
+            )
         else:
             return HttpResponseBadRequest()
         return redirect("integrations:status")

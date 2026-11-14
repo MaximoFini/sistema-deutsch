@@ -29,13 +29,19 @@ class OAuthError(Exception):
     pass
 
 
+NOT_CONFIGURED = "La app de Tiendanube todavía no está configurada en el sistema. Avisale a Kei Software."
+CODE_REJECTED = "La autorización venció o ya se usó: tocá Conectar de nuevo."
+UNAVAILABLE = "Tiendanube no responde. Probá en unos minutos."
+
+
 def new_state() -> str:
     return secrets.token_urlsafe(24)
 
 
 def authorize_url(state: str) -> str:
     if not settings.TN_APP_ID:
-        raise OAuthError("Falta TN_APP_ID en la configuración.")
+        logger.warning("Falta TN_APP_ID en la configuración")
+        raise OAuthError(NOT_CONFIGURED)
     return AUTHORIZE_URL.format(app_id=settings.TN_APP_ID, state=state)
 
 
@@ -46,13 +52,24 @@ def exchange_code(code: str, transport: httpx.BaseTransport | None = None) -> di
         "grant_type": "authorization_code",
         "code": code,
     }
-    with httpx.Client(timeout=20, transport=transport) as client:
-        response = client.post(TOKEN_URL, json=payload, headers={"User-Agent": settings.TN_USER_AGENT})
+    try:
+        with httpx.Client(timeout=20, transport=transport) as client:
+            response = client.post(TOKEN_URL, json=payload, headers={"User-Agent": settings.TN_USER_AGENT})
+    except httpx.TransportError as exc:
+        logger.warning("No se pudo contactar a Tiendanube para el token: %s", exc)
+        raise OAuthError(UNAVAILABLE) from exc
+    if response.status_code >= 500:
+        logger.warning("Tiendanube respondió %s al pedir el token", response.status_code)
+        raise OAuthError(UNAVAILABLE)
     if response.status_code != 200:
-        raise OAuthError(f"Tiendanube rechazó el código ({response.status_code}).")
+        logger.warning("Tiendanube rechazó el código (%s)", response.status_code)
+        raise OAuthError(CODE_REJECTED)
     data = response.json()
     if "access_token" not in data:
-        raise OAuthError(data.get("error_description") or "Respuesta sin access_token.")
+        logger.warning(
+            "Tiendanube no devolvió access_token: %s", data.get("error_description") or data.get("error")
+        )
+        raise OAuthError(CODE_REJECTED)
     return data
 
 

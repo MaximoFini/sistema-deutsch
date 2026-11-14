@@ -25,7 +25,7 @@ def _finish(request, code: str, state: str):
     try:
         cred = auth.connect(code=code, actor=request.user, request=request)
     except auth.OAuthError as exc:
-        messages.error(request, f"No se pudo conectar Mercado Libre: {exc}")
+        messages.error(request, f"No se pudo conectar Mercado Libre. {exc}")
         return redirect("integrations:status")
     from .tasks import ml_import_listings, ml_import_orders
 
@@ -90,10 +90,16 @@ class ImportView(PanelPermissionRequiredMixin, View):
 
         if kind == "publicaciones":
             ml_import_listings.defer()
-            messages.success(request, "Importación de publicaciones de Mercado Libre encolada.")
+            messages.success(
+                request,
+                "Empezó la importación de publicaciones de Mercado Libre. Puede tardar unos minutos; los datos van apareciendo solos.",
+            )
         elif kind == "ventas":
             ml_import_orders.defer()
-            messages.success(request, "Importación de ventas de Mercado Libre encolada.")
+            messages.success(
+                request,
+                "Empezó la importación de ventas de Mercado Libre. Puede tardar unos minutos; los datos van apareciendo solos.",
+            )
         else:
             return HttpResponseBadRequest()
         return redirect("integrations:status")

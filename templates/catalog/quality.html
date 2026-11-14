@@ -6,7 +6,7 @@
     <h1 class="text-xl font-semibold">Calidad de datos del catálogo</h1>
     <p class="text-sm text-stone-600">{{ total }} problemas · <span class="text-red-700">{{ critical }} críticos</span>. Se corrigen en el origen (Tiendanube, Mercado Libre o Contabilium).</p>
   </div>
-  <a href="?tipo={{ tipo }}&severidad={{ severidad }}&formato=xlsx" class="rounded border border-stone-300 px-3 py-1.5 text-sm">Exportar a Excel</a>
+  <a href="?{% if querystring %}{{ querystring }}&{% endif %}formato=xlsx" class="rounded border border-stone-300 px-3 py-1.5 text-sm">Exportar a Excel</a>
 </div>
 <div class="mb-4 flex flex-wrap gap-2 text-xs">
   <a href="?" class="rounded-full border px-2 py-1 {% if not tipo and not severidad %}bg-stone-900 text-white{% endif %}">Todos</a>
@@ -31,4 +31,5 @@
   {% endfor %}
   </tbody>
 </table>
+{% include "_pagination.html" with noun="problemas" %}
 {% endblock %}

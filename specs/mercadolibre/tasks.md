@@ -185,7 +185,7 @@ Ordenadas por dependencia. Cada tarea incluye sus tests: la API de Mercado Libre
   - Comando `ml_spike_snapshot ITEM_ID`: guarda un JSON de la publicación para comparar antes y después.
   - Esqueleto de `docs/spikes/ml-contabilium.md` con el procedimiento.
 
-- [ ] **T17: Cierre de la parte programable de M2**
+- [x] **T17: Cierre de la parte programable de M2**
   Depends on: T1–T16
   Notas:
   - Suite completa y CI en verde.

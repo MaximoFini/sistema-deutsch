@@ -14,7 +14,7 @@ from apps.integrations.models import Channel
 from apps.pricing import services as pricing
 from apps.pricing.models import PriceList
 
-from . import states
+from . import payments, states
 from .models import Payment, SalesDocument, SalesLine, Shipment
 
 DELIVERY_METHODS = {
@@ -107,6 +107,8 @@ def create_manual_order(
         raise ManualOrderError("Agregá al menos un producto.")
     if delivery not in DELIVERY_METHODS:
         raise ManualOrderError("Elegí la forma de entrega.")
+    for ml in lines:
+        _validate_line(ml)
     doc = SalesDocument.objects.create(
         doc_type=SalesDocument.DocType.ORDER,
         channel=Channel.objects.get(code="manual"),
@@ -118,8 +120,6 @@ def create_manual_order(
     )
     doc.channel_reference = f"Manual #{doc.number}"
     for ml in lines:
-        if ml.quantity is None or Decimal(ml.quantity) <= 0:
-            raise ManualOrderError(f"La cantidad de {ml.variant.sku} tiene que ser mayor a 0.")
         price = ml.unit_price if ml.unit_price is not None else (reference_price(ml.variant) or Decimal(0))
         attrs = " / ".join(str(v) for v in ml.variant.attributes.values())
         SalesLine.objects.create(
@@ -153,6 +153,27 @@ def create_manual_order(
     )
     states.emit_new_order(doc)
     return doc
+
+
+def _validate_line(ml: ManualLine) -> None:
+    sku = ml.variant.sku
+    try:
+        quantity = Decimal(ml.quantity) if ml.quantity is not None else None
+    except (ArithmeticError, TypeError, ValueError):
+        quantity = None
+    if quantity is None or not quantity.is_finite() or quantity <= 0:
+        raise ManualOrderError(f"La cantidad de {sku} tiene que ser mayor a 0.")
+    if quantity != quantity.to_integral_value():
+        raise ManualOrderError(f"La cantidad de {sku} tiene que ser un número entero (sin decimales).")
+    if ml.unit_price is not None:
+        try:
+            price = Decimal(ml.unit_price)
+        except (ArithmeticError, TypeError, ValueError):
+            price = None
+        if price is None or not price.is_finite():
+            raise ManualOrderError(f"Revisá el precio de {sku}: tiene que ser un número.")
+        if price < 0:
+            raise ManualOrderError(f"El precio de {sku} no puede ser negativo.")
 
 
 def _set_invoice(doc: SalesDocument, invoiced: bool, number: str) -> None:
@@ -212,4 +233,4 @@ def update_invoice(doc: SalesDocument, *, invoiced: bool, number: str, user, req
 
 
 def is_paid(doc: SalesDocument) -> bool:
-    return doc.payments.filter(status=Payment.Status.CONFIRMED).exists() or doc.total <= 0
+    return payments.is_paid(doc)
