@@ -1,11 +1,11 @@
 # Tasks: Base del sistema (módulo M0)
 
-**Status:** In progress (aprobado 2026-11-14)
+**Status:** Done (2026-11-14), salvo lo que depende del servidor (ver abajo)
 **Last updated:** 2026-11-14
 **Design:** [design.md](./design.md)
 
 
-> **Avance 2026-11-14:** T1–T22 hechos y verificados: 84 tests en verde contra Postgres 17 local, ruff limpio, `makemigrations --check` y `check --deploy` sin problemas, panel probado en el navegador (login, integraciones, usuarios), simulacro de restauración local OK. Pendiente: T23 (crear el repo en GitHub: falta definir la cuenta) y T24 (cierre).
+> **Avance 2026-11-14:** T1–T22 hechos y verificados: 84 tests en verde contra Postgres 17 local, ruff limpio, `makemigrations --check` y `check --deploy` sin problemas, panel probado en el navegador (login, integraciones, usuarios), simulacro de restauración local OK. Repo en github.com/MaximoFini/sistema-deutsch con CI en verde.
 
 Ordered by dependency. Each task includes its tests. `§` points to the design.md section.
 
@@ -129,12 +129,12 @@ Ordered by dependency. Each task includes its tests. `§` points to the design.m
   Depends on: T13
   Notes: multi-stage image, `deploy/compose.yml` with web, worker, postgres and caddy, memory limits, prod/staging profiles; Caddyfile for `panel.deutsch.com.ar` and `staging.panel.deutsch.com.ar`. Not run until there is a server (deferred deployment).
 
-- [ ] **T23: GitHub repo and CI**
+- [x] **T23: GitHub repo and CI**
   Satisfies: US-3
   Depends on: T2
   Notes: create the private repo (account to be confirmed: I'll ask before creating it); `ci.yml` workflow (ruff, pytest with Postgres 17, makemigrations --check, check --deploy). `deploy-staging.yml` and `deploy-prod.yml` (manual with approval) written but disabled until there is a server.
 
-- [ ] **T24: M0 closeout**
+- [x] **T24: M0 closeout**
   Satisfies: all
   Depends on: T1–T23
   Notes: full test suite green; review traceability against requirements.md; update the DDEV-1..9 tickets in Plane (Done or what is left pending: staging deployment, SMTP mailbox, server restore drill).
