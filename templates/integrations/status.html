@@ -48,6 +48,31 @@
       </div>
     </div>
     {% endif %}
+    {% if card.channel.code == "mercadolibre" %}
+    <div class="mt-3 rounded bg-stone-50 p-2 text-xs">
+      {% if ml.connected %}
+        <p>Vendedor <strong>{{ ml.user_id }}</strong> conectado · token vence {{ ml.expires_at|date:"d/m H:i" }} (se renueva solo)</p>
+        <p>Entrada: consulta cada {{ ml.every }} min hasta tener servidor · etiquetas en {{ ml.label_format|upper }}</p>
+      {% elif not ml.configured %}
+        <p>Falta configurar la app de Mercado Libre (ML_APP_ID y ML_REDIRECT_URI). Ver docs/runbooks/mercadolibre-app.md.</p>
+      {% else %}
+        <p>Todavía no está conectada. La autorización la hace el dueño de la cuenta de Deutsch.</p>
+      {% endif %}
+      <div class="mt-2 flex flex-wrap items-start gap-2">
+        {% if perms.integrations.manage_connection and ml.configured %}
+        <form method="post" action="{% url 'mercadolibre:connect' %}">{% csrf_token %}<button class="rounded bg-stone-900 px-2 py-1 text-white">{% if ml.connected %}Reconectar{% else %}Conectar Mercado Libre{% endif %}</button></form>
+        <form method="post" action="{% url 'mercadolibre:paste_url' %}" class="flex gap-1">{% csrf_token %}
+          <input name="return_url" placeholder="Pegá la URL de vuelta (sin servidor)" class="w-64 rounded border border-stone-300 px-2 py-1">
+          <button class="underline">Terminar conexión</button>
+        </form>
+        {% endif %}
+        {% if perms.integrations.retry_event and ml.connected %}
+        <form method="post" action="{% url 'mercadolibre:import' 'publicaciones' %}">{% csrf_token %}<button class="underline">Importar publicaciones</button></form>
+        <form method="post" action="{% url 'mercadolibre:import' 'ventas' %}">{% csrf_token %}<button class="underline">Importar ventas (30 días)</button></form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
     {% if card.errors %}
     <details class="mt-3 text-xs"><summary class="cursor-pointer underline">Últimos errores</summary>
       <ul class="mt-1 space-y-1">{% for e in card.errors %}<li><span class="text-stone-500">{{ e.received_at|date:"d/m H:i" }} · {{ e.topic }}</span> — {{ e.last_error|truncatechars:160 }}</li>{% endfor %}</ul>

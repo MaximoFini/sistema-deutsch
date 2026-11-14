@@ -92,8 +92,32 @@ class IntegrationStatusView(PanelPermissionRequiredMixin, TemplateView):
             )
         ctx["cards"] = cards
         ctx["tn"] = self._tiendanube_info()
+        ctx["ml"] = self._mercadolibre_info()
         ctx["writes_allowed_by_server"] = settings.ALLOW_CHANNEL_WRITES
         return ctx
+
+    def _mercadolibre_info(self):
+        from django.utils.dateparse import parse_datetime
+
+        from . import credentials
+
+        info = {
+            "configured": bool(settings.ML_APP_ID and settings.ML_REDIRECT_URI),
+            "connected": False,
+            "label_format": settings.ML_LABEL_FORMAT,
+            "every": settings.ML_POLL_MINUTES,
+        }
+        try:
+            data = credentials.get(Channel.MERCADOLIBRE)
+        except credentials.CredentialsMissing:
+            data = None
+        if data:
+            info.update(
+                connected=True,
+                user_id=data.get("user_id"),
+                expires_at=parse_datetime(data.get("expires_at") or ""),
+            )
+        return info
 
     def _tiendanube_info(self):
         from . import credentials

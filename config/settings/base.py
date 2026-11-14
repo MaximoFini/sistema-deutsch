@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "apps.customers",
     "apps.sales",
     "apps.integrations",
+    "apps.conversations",
 ]
 
 MIDDLEWARE = [
@@ -129,6 +130,15 @@ TN_ORDERS_RECONCILE_MINUTES = env.int("TN_ORDERS_RECONCILE_MINUTES", default=5)
 TN_INITIAL_ORDER_DAYS = env.int("TN_INITIAL_ORDER_DAYS", default=30)
 # Canal que alimenta el stock del sistema hasta la integración directa con Contabilium (M8).
 STOCK_FEED_CHANNEL = env("STOCK_FEED_CHANNEL", default="tiendanube")
+
+# ── Mercado Libre (M2) ──
+ML_APP_ID = env("ML_APP_ID", default="")
+ML_CLIENT_SECRET = env("ML_CLIENT_SECRET", default="")
+ML_REDIRECT_URI = env("ML_REDIRECT_URI", default="")
+ML_SITE = env("ML_SITE", default="MLA")
+ML_POLL_MINUTES = env.int("ML_POLL_MINUTES", default=5)
+ML_LABEL_FORMAT = env("ML_LABEL_FORMAT", default="pdf")  # pdf | zpl2 (impresora a confirmar)
+ML_INITIAL_ORDER_DAYS = env.int("ML_INITIAL_ORDER_DAYS", default=30)
 
 SENTRY_DSN = env("SENTRY_DSN", default="")
 ENVIRONMENT_NAME = env("ENVIRONMENT_NAME", default="local")

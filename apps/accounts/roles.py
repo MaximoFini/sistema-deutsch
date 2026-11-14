@@ -19,10 +19,18 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "integrations.retry_event",
         "integrations.toggle_write_switch",
         "integrations.manage_connection",
+        "conversations.answer_question",
+        "conversations.send_message",
+        "conversations.view_claim",
         "core.change_source_of_truth",
     ],
     DEPOSITO: ["alerts.view_alert"],
-    VENTAS: ["alerts.view_alert"],
+    VENTAS: [
+        "alerts.view_alert",
+        "conversations.answer_question",
+        "conversations.send_message",
+        "conversations.view_claim",
+    ],
     VENDEDOR: ["alerts.view_alert"],
 }
 
@@ -40,6 +48,9 @@ PERMISSION_LABELS: dict[str, str] = {
     "integrations.toggle_write_switch": "Encender o apagar la escritura de stock/precio a un canal",
     "core.change_source_of_truth": "Cambiar la fuente de verdad de un dato",
     "integrations.manage_connection": "Conectar o reconectar un canal de venta",
+    "conversations.answer_question": "Responder preguntas de Mercado Libre",
+    "conversations.send_message": "Enviar mensajes postventa",
+    "conversations.view_claim": "Ver reclamos y devoluciones",
 }
 
 

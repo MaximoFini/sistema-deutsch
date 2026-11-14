@@ -115,11 +115,19 @@ class Shipment(TimeStampedModel):
         ME_FLEX = "me_flex", "Mercado Envíos Flex"
         ME_FULL = "me_full", "Mercado Envíos Full"
         ME_COLECTA = "me_colecta", "Mercado Envíos Colecta"
+        ME_DROP_OFF = "me_drop_off", "Mercado Envíos punto de entrega / correo"
+        ME_CUSTOM = "me_custom", "Mercado Libre: acordar con el vendedor"
+        ME_OTHER = "me_other", "Mercado Libre: otra modalidad"
         ENVIO_NUBE = "envio_nube", "Envío Nube"
         PICKUP = "pickup", "Retiro en local"
         CARRIER = "carrier", "Transporte"
 
     document = models.ForeignKey(SalesDocument, on_delete=models.CASCADE, related_name="shipments")
+    external_id = models.CharField("id en el canal", max_length=64, blank=True, db_index=True)
+    logistic_type = models.CharField("logística (canal)", max_length=40, blank=True)
+    dispatch_deadline = models.DateTimeField("despachar antes de", null=True, blank=True)
+    substatus = models.CharField("subestado", max_length=60, blank=True)
+    label_zpl_file = models.FileField("etiqueta ZPL", upload_to="etiquetas/%Y/%m/", null=True, blank=True)
     method = models.CharField("método", max_length=20, choices=Method.choices)
     carrier_name = models.CharField("transporte", max_length=100, blank=True)
     tracking_number = models.CharField("seguimiento", max_length=100, blank=True)

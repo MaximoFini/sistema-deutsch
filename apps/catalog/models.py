@@ -42,3 +42,61 @@ class Variant(TimeStampedModel):
     def __str__(self) -> str:
         attrs = " / ".join(str(v) for v in self.attributes.values())
         return f"{self.sku} · {self.product.name}" + (f" ({attrs})" if attrs else "")
+
+
+class Listing(TimeStampedModel):
+    """Publicación de un canal (p. ej. Mercado Libre). Genérico: `channel` dice de dónde es."""
+
+    channel = models.ForeignKey("integrations.Channel", on_delete=models.PROTECT, related_name="listings")
+    external_id = models.CharField("id en el canal", max_length=64)
+    title = models.CharField("título", max_length=255)
+    status = models.CharField("estado", max_length=30, db_index=True)
+    listing_type = models.CharField("tipo de publicación", max_length=40, blank=True)
+    category_id = models.CharField("categoría del canal", max_length=40, blank=True)
+    permalink = models.URLField("link", max_length=500, blank=True)
+    logistic_type = models.CharField("logística", max_length=40, blank=True)
+    price = models.DecimalField("precio", max_digits=14, decimal_places=2, null=True, blank=True)
+    currency = models.CharField("moneda", max_length=3, default="ARS")
+    available_quantity = models.IntegerField("stock en el canal", null=True, blank=True)
+    sold_quantity = models.IntegerField("vendidos", null=True, blank=True)
+    health = models.DecimalField("salud", max_digits=4, decimal_places=2, null=True, blank=True)
+    user_product_id = models.CharField(max_length=64, blank=True)
+    data = models.JSONField("datos crudos", default=dict, blank=True)
+    last_synced_at = models.DateTimeField("última sincronización", null=True, blank=True)
+    needs_review = models.BooleanField("revisar datos", default=False)
+    review_notes = models.CharField("motivo de revisión", max_length=255, blank=True)
+
+    class Meta:
+        verbose_name = "publicación"
+        verbose_name_plural = "publicaciones"
+        ordering = ["title"]
+        constraints = [
+            models.UniqueConstraint(fields=["channel", "external_id"], name="unique_listing_per_channel")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.external_id} · {self.title}"
+
+
+class ListingVariation(models.Model):
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name="variations")
+    external_id = models.CharField("id de variación", max_length=64, blank=True)  # "" = sin variaciones
+    variant = models.ForeignKey(
+        Variant, null=True, blank=True, on_delete=models.SET_NULL, related_name="listing_variations"
+    )
+    sku = models.CharField("SKU", max_length=64, blank=True, db_index=True)
+    attributes = models.JSONField("atributos", default=dict, blank=True)
+    price = models.DecimalField("precio", max_digits=14, decimal_places=2, null=True, blank=True)
+    available_quantity = models.IntegerField("stock en el canal", null=True, blank=True)
+    user_product_id = models.CharField(max_length=64, blank=True)
+    picture_urls = models.JSONField("fotos", default=list, blank=True)
+
+    class Meta:
+        verbose_name = "variación de publicación"
+        verbose_name_plural = "variaciones de publicación"
+        constraints = [
+            models.UniqueConstraint(fields=["listing", "external_id"], name="unique_listing_variation")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.listing.external_id}:{self.external_id or '-'} ({self.sku or 'sin SKU'})"
