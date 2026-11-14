@@ -1,0 +1,47 @@
+name: Deploy staging
+
+# Desactivado hasta contratar el servidor (despliegue diferido).
+# Para activar: reemplazar `if: false` por
+#   if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+jobs:
+  deploy:
+    if: false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build y push
+        run: |
+          IMAGE=ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}
+          docker build -f deploy/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+      - name: Desplegar
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            export IMAGE=ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}
+            cd /srv/deutsch/deploy
+            sed -i "s|^IMAGE=.*|IMAGE=$IMAGE|" /srv/deutsch/staging.env
+            docker compose -p staging --env-file /srv/deutsch/staging.env -f compose.yml pull
+            docker compose -p staging --env-file /srv/deutsch/staging.env -f compose.yml run --rm web python manage.py migrate --noinput
+            docker compose -p staging --env-file /srv/deutsch/staging.env -f compose.yml up -d
+            sleep 10
+            curl -fsS https://staging.panel.deutsch.com.ar/health/

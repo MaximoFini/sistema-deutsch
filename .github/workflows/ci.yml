@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: deutsch
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: deutsch_dev
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://deutsch:ci-only-password@localhost:5432/deutsch_dev
+      SECRET_KEY: ci-only-secret-key-not-used-anywhere-else-0123456789
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Migraciones al día
+        run: uv run python manage.py makemigrations --check --dry-run --settings=config.settings.test
+      - name: Tests
+        run: uv run pytest --create-db
+      - name: Chequeo de producción
+        env:
+          FIELD_ENCRYPTION_KEY: ${{ secrets.CI_FERNET_KEY || 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=' }}
+          ALLOWED_HOSTS: panel.deutsch.com.ar
+        run: uv run python manage.py check --deploy --settings=config.settings.prod --fail-level WARNING

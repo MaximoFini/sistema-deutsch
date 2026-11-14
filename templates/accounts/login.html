@@ -1,0 +1,12 @@
+{% extends "accounts/_auth_base.html" %}
+{% block title %}Ingresar · Sistema Deutsch{% endblock %}
+{% block auth %}
+<form method="post" class="space-y-4">{% csrf_token %}
+  {% if form.non_field_errors %}<p class="text-sm text-red-700">Email o contraseña incorrectos.</p>{% endif %}
+  {% with field=form.username %}{% include "accounts/_field.html" %}{% endwith %}
+  {% with field=form.password %}{% include "accounts/_field.html" %}{% endwith %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <button class="w-full rounded bg-stone-900 px-3 py-2 text-white hover:bg-stone-700">Ingresar</button>
+</form>
+<a href="{% url 'accounts:password_reset' %}" class="mt-4 block text-center text-sm text-stone-600 underline">Olvidé mi contraseña</a>
+{% endblock %}

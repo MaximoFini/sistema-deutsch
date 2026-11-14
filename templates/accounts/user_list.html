@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Usuarios · Sistema Deutsch{% endblock %}
+{% block content %}
+<div class="mb-4 flex items-center justify-between">
+  <h1 class="text-xl font-semibold">Usuarios</h1>
+  <a href="{% url 'accounts:user_create' %}" class="rounded bg-stone-900 px-3 py-2 text-sm text-white hover:bg-stone-700">Nuevo usuario</a>
+</div>
+<table class="w-full overflow-hidden rounded-lg border border-stone-200 bg-white text-sm">
+  <thead class="bg-stone-100 text-left text-stone-600">
+    <tr><th class="px-3 py-2">Nombre</th><th class="px-3 py-2">Email</th><th class="px-3 py-2">Rol</th><th class="px-3 py-2">Estado</th><th class="px-3 py-2"></th></tr>
+  </thead>
+  <tbody>
+  {% for u in users %}
+    <tr class="border-t border-stone-100 {% if not u.is_active %}text-stone-400{% endif %}">
+      <td class="px-3 py-2"><a href="{% url 'accounts:user_edit' u.pk %}" class="underline">{{ u.full_name }}</a></td>
+      <td class="px-3 py-2">{{ u.email }}</td>
+      <td class="px-3 py-2">{{ u.groups.all.0.name|default:"—" }}</td>
+      <td class="px-3 py-2">{% if u.is_active %}Activo{% else %}Desactivado{% endif %}</td>
+      <td class="px-3 py-2 text-right">
+        {% if u != request.user %}
+        <form method="post" action="{% url 'accounts:user_toggle_active' u.pk %}">{% csrf_token %}
+          <button class="text-xs underline">{% if u.is_active %}Desactivar{% else %}Reactivar{% endif %}</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="5" class="px-3 py-6 text-center text-stone-500">Todavía no hay usuarios.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

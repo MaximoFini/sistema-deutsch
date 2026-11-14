@@ -1,0 +1,6 @@
+{# Menú del panel: cada ítem se muestra solo si el usuario tiene el permiso. Los módulos M1–M8 agregan los suyos acá. #}
+<a href="{% url 'core:home' %}" class="hover:underline">Inicio</a>
+{% if perms.alerts.view_alert %}<a href="{% url 'alerts:list' %}" class="hover:underline">Avisos</a>{% endif %}
+{% if perms.integrations.view_status %}<a href="{% url 'integrations:status' %}" class="hover:underline">Integraciones</a>{% endif %}
+{% if perms.accounts.manage_users %}<a href="{% url 'accounts:user_list' %}" class="hover:underline">Usuarios</a>{% endif %}
+{% if perms.audit.view_auditlog %}<a href="{% url 'audit:list' %}" class="hover:underline">Auditoría</a>{% endif %}

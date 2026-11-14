@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Editar{% else %}Nuevo{% endif %} usuario · Sistema Deutsch{% endblock %}
+{% block content %}
+<h1 class="mb-4 text-xl font-semibold">{% if object %}Editar {{ object.full_name }}{% else %}Nuevo usuario{% endif %}</h1>
+<form method="post" class="max-w-2xl space-y-5 rounded-lg border border-stone-200 bg-white p-6">{% csrf_token %}
+  {% if form.non_field_errors %}<div class="text-sm text-red-700">{{ form.non_field_errors }}</div>{% endif %}
+  {% with field=form.full_name %}{% include "accounts/_field.html" %}{% endwith %}
+  {% with field=form.email %}{% include "accounts/_field.html" %}{% endwith %}
+  <label class="block text-sm">
+    <span class="text-stone-700">Rol</span>
+    <select name="role" required class="mt-1 block w-full rounded border border-stone-300 px-3 py-2">
+      <option value="">Elegir…</option>
+      {% for value, label in form.role.field.choices %}{% if value %}
+        <option value="{{ value }}" {% if form.role.value|stringformat:"s" == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+      {% endif %}{% endfor %}
+    </select>
+    {% for error in form.role.errors %}<span class="text-xs text-red-700">{{ error }}</span>{% endfor %}
+  </label>
+  <fieldset class="text-sm">
+    <legend class="mb-2 text-stone-700">{{ form.extra_permissions.label }}</legend>
+    <div class="grid gap-1 sm:grid-cols-2">{% for cb in form.extra_permissions %}<label class="flex gap-2">{{ cb.tag }} {{ cb.choice_label }}</label>{% endfor %}</div>
+  </fieldset>
+  <fieldset class="text-sm">
+    <legend class="mb-2 text-stone-700">{{ form.denied_permissions.label }}</legend>
+    <div class="grid gap-1 sm:grid-cols-2">{% for cb in form.denied_permissions %}<label class="flex gap-2">{{ cb.tag }} {{ cb.choice_label }}</label>{% endfor %}</div>
+  </fieldset>
+  {% if not object %}<p class="text-xs text-stone-500">Al crear el usuario le llega un email para elegir su contraseña. Nadie más la conoce.</p>{% endif %}
+  <div class="flex gap-3">
+    <button class="rounded bg-stone-900 px-4 py-2 text-sm text-white hover:bg-stone-700">Guardar</button>
+    <a href="{% url 'accounts:user_list' %}" class="px-4 py-2 text-sm underline">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

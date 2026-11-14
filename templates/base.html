@@ -1,0 +1,40 @@
+{% load static tailwind_cli %}<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Sistema Deutsch{% endblock %}</title>
+  {% tailwind_css %}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.4/htmx.min.js" defer></script>
+</head>
+<body class="min-h-screen bg-stone-50 text-stone-900" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  {% block body %}
+  <header class="border-b border-stone-200 bg-white">
+    <div class="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3">
+      <a href="{% url 'core:home' %}" class="font-semibold tracking-tight">Deutsch</a>
+      {% if ENVIRONMENT_NAME != "prod" %}<span class="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{{ ENVIRONMENT_NAME }}</span>{% endif %}
+      <nav class="flex flex-1 flex-wrap gap-4 text-sm">
+        {% include "_menu.html" %}
+      </nav>
+      {% if perms.alerts.view_alert %}
+      <span hx-get="{% url 'alerts:bell' %}" hx-trigger="load, every 60s" hx-swap="innerHTML"></span>
+      {% endif %}
+      <span class="text-sm text-stone-600">{{ request.user.get_short_name }}</span>
+      <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+        <button class="text-sm text-stone-500 hover:text-stone-900">Salir</button>
+      </form>
+    </div>
+  </header>
+  <main class="mx-auto max-w-7xl px-4 py-6">
+    {% if messages %}
+      <div class="mb-4 space-y-2">
+        {% for message in messages %}
+          <div class="rounded border px-3 py-2 text-sm {% if message.tags == 'error' %}border-red-200 bg-red-50 text-red-800{% else %}border-emerald-200 bg-emerald-50 text-emerald-800{% endif %}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  {% endblock %}
+</body>
+</html>

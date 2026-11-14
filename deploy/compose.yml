@@ -1,0 +1,51 @@
+# Un stack por entorno en el mismo VPS:
+#   docker compose -p prod    --env-file /srv/deutsch/prod.env    -f compose.yml up -d
+#   docker compose -p staging --env-file /srv/deutsch/staging.env -f compose.yml up -d
+# Caddy corre una sola vez (compose.caddy.yml) y enruta a ambos stacks por la red "edge".
+
+services:
+  web:
+    image: ${IMAGE:?falta IMAGE}
+    env_file: ${APP_ENV_FILE:?falta APP_ENV_FILE}
+    restart: unless-stopped
+    depends_on: [db]
+    volumes: ["media:/app/media"]
+    networks: [default, edge]
+    deploy:
+      resources:
+        limits: { memory: 768m }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health/')"]
+      interval: 30s
+      retries: 3
+
+  worker:
+    image: ${IMAGE}
+    env_file: ${APP_ENV_FILE}
+    restart: unless-stopped
+    depends_on: [db]
+    command: ["python", "manage.py", "procrastinate", "worker"]
+    volumes: ["media:/app/media"]
+    deploy:
+      resources:
+        limits: { memory: 512m }
+
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?falta POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?falta POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    deploy:
+      resources:
+        limits: { memory: 768m }
+
+volumes:
+  pgdata:
+  media:
+
+networks:
+  edge:
+    external: true

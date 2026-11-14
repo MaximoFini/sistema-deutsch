@@ -1,0 +1,33 @@
+name: Deploy producción
+
+# Paso manual: se ejecuta a mano desde GitHub con la imagen (sha) ya probada en staging.
+# Desactivado hasta contratar el servidor: para activar, borrar `if: false`.
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit (sha) ya desplegado y probado en staging"
+        required: true
+
+jobs:
+  deploy:
+    if: false
+    runs-on: ubuntu-latest
+    environment: production  # requiere aprobación
+    steps:
+      - name: Desplegar
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            export IMAGE=ghcr.io/${{ github.repository }}:${{ inputs.sha }}
+            cd /srv/deutsch/deploy
+            sed -i "s|^IMAGE=.*|IMAGE=$IMAGE|" /srv/deutsch/prod.env
+            docker compose -p prod --env-file /srv/deutsch/prod.env -f compose.yml pull
+            docker compose -p prod --env-file /srv/deutsch/prod.env -f compose.yml run --rm web python manage.py migrate --noinput
+            docker compose -p prod --env-file /srv/deutsch/prod.env -f compose.yml up -d
+            sleep 10
+            curl -fsS https://panel.deutsch.com.ar/health/

@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Sin permiso · Sistema Deutsch{% endblock %}
+{% block content %}
+<h1 class="text-xl font-semibold">No tenés permiso para ver esta página</h1>
+<p class="mt-2 text-stone-600">Si creés que deberías tener acceso, pedíselo a un administrador.</p>
+<a href="{% url 'core:home' %}" class="mt-4 inline-block text-sm underline">Volver al inicio</a>
+{% endblock %}

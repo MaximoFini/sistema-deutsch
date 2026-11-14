@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Avisos · Sistema Deutsch{% endblock %}
+{% block content %}
+<div class="mb-4 flex items-center justify-between">
+  <h1 class="text-xl font-semibold">Avisos</h1>
+  <div class="flex items-center gap-4 text-sm">
+    {% if request.GET.unread %}<a href="{% url 'alerts:list' %}" class="underline">Ver todos</a>{% else %}<a href="?unread=1" class="underline">Solo sin leer</a>{% endif %}
+    <form method="post" action="{% url 'alerts:mark_all_read' %}">{% csrf_token %}<button class="underline">Marcar todos como leídos</button></form>
+  </div>
+</div>
+<ul class="divide-y divide-stone-100 rounded-lg border border-stone-200 bg-white">
+  {% for r in receipts %}
+  <li class="flex items-start gap-3 px-4 py-3 {% if not r.read_at %}bg-amber-50{% endif %}">
+    <div class="flex-1">
+      <p class="font-medium">{{ r.alert.title }}</p>
+      {% if r.alert.body %}<p class="mt-1 text-sm text-stone-600">{{ r.alert.body|linebreaksbr }}</p>{% endif %}
+      <p class="mt-1 text-xs text-stone-500">{{ r.alert.created_at|date:"d/m/Y H:i" }} · {{ r.alert.alert_type.name }}{% if r.alert.link_url %} · <a href="{{ r.alert.link_url }}" class="underline">Ver</a>{% endif %}</p>
+    </div>
+    {% if not r.read_at %}
+    <form method="post" action="{% url 'alerts:mark_read' r.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="text-xs underline">Marcar leído</button></form>
+    {% endif %}
+  </li>
+  {% empty %}
+  <li class="px-4 py-6 text-center text-sm text-stone-500">No hay avisos.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

@@ -1,0 +1,1 @@
+<a href="{% url 'alerts:list' %}?unread=1" class="relative text-sm" title="Avisos sin leer">🔔{% if unread %}<span class="ml-1 rounded-full bg-red-600 px-1.5 text-xs text-white">{{ unread }}</span>{% endif %}</a>

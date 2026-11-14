@@ -1,0 +1,15 @@
+panel.deutsch.com.ar {
+	encode gzip
+	reverse_proxy prod-web-1:8000
+}
+
+staging.panel.deutsch.com.ar {
+	encode gzip
+	reverse_proxy staging-web-1:8000
+}
+
+# M8 · tienda mayorista (se habilita cuando exista)
+# mayoristas.deutsch.com.ar {
+# 	encode gzip
+# 	reverse_proxy prod-web-1:8000
+# }

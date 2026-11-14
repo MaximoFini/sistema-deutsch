@@ -1,0 +1,50 @@
+[project]
+name = "sistema-deutsch"
+version = "0.1.0"
+description = "Centro de pedidos Deutsch (fase 1) — núcleo ERP sobre Contabilium"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "django>=5.2,<5.3",
+    "procrastinate[django]>=3.0",
+    "psycopg[binary]>=3.2",
+    "django-environ>=0.11",
+    "httpx>=0.27",
+    "cryptography>=43",
+    "django-axes>=7.0",
+    "django-htmx>=1.19",
+    "django-tailwind-cli>=4.0",
+    "sentry-sdk>=2.0",
+    "gunicorn>=23",
+    "whitenoise>=6.7",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-django>=4.9",
+    "factory-boy>=3.3",
+    "respx>=0.21",
+    "ruff>=0.7",
+    "coverage>=7",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+addopts = "-q --reuse-db"
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "DJ", "S"]
+ignore = ["S101", "S105", "S106", "E501", "DJ008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S"]

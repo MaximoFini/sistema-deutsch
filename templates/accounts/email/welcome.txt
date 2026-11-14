@@ -1,0 +1,8 @@
+Hola {{ user.get_short_name }}:
+
+Te crearon un usuario en el Sistema Deutsch con el email {{ user.email }}.
+Para empezar, elegí tu contraseña en este link (vence en {{ hours }} horas y sirve una sola vez):
+
+{{ url }}
+
+Si vence, podés pedir otro desde "Olvidé mi contraseña" en la pantalla de ingreso.
