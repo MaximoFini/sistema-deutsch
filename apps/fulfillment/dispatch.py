@@ -32,6 +32,7 @@ class DispatchError(Exception):
 class Result:
     done: list[tuple[SalesDocument, str]] = field(default_factory=list)  # (pedido, estado nuevo)
     failed: list[tuple[SalesDocument, str]] = field(default_factory=list)  # (pedido, motivo)
+    stale: int = 0  # cuántos fallaron porque cambiaron de estado mientras la página estaba abierta
 
     def failed_text(self) -> str:
         return "; ".join(f"{order_ref(doc)} ({reason})" for doc, reason in self.failed)
@@ -66,6 +67,7 @@ def advance(document_ids, action: str, *, user, request=None, tracking: dict | N
         shipments = list(doc.shipments.all())
         if doc.status != origin:
             result.failed.append((doc, f"ahora está «{states.label(doc.status)}»"))
+            result.stale += 1
             continue
         to = target_for(doc, action, shipments)
         code = (

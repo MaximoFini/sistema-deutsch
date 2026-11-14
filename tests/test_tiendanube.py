@@ -324,9 +324,11 @@ def test_old_event_does_not_overwrite_newer():
 def test_update_does_not_touch_internal_status():
     doc = orders.upsert_order(tn_samples.order())
     SalesDocument.objects.filter(pk=doc.pk).update(status="preparing")
-    orders.upsert_order(tn_samples.order(updated_at="2026-11-13T10:00:00+0000", shipping_status="shipped"))
+    # "fulfilled" (empaquetado en TN) no dispara ninguna regla. Con "shipped" ahora sí pasa a
+    # Despachado (auditoría M4-M5, L1): ver tests/test_auditoria_m5.py.
+    orders.upsert_order(tn_samples.order(updated_at="2026-11-13T10:00:00+0000", shipping_status="fulfilled"))
     doc.refresh_from_db()
-    assert doc.status == "preparing" and doc.channel_status.endswith("shipped")
+    assert doc.status == "preparing" and doc.channel_status.endswith("fulfilled")
 
 
 def test_cancelled_order():

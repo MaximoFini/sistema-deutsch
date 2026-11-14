@@ -22,12 +22,17 @@ class Facts:
     delivered: bool
     full: bool
     claim_open: bool
+    shipped: bool = False  # el canal dice que el paquete ya salió (Flex escaneado, Envío Nube despachado)
+    pickup: bool = False
 
 
 def facts(doc: SalesDocument) -> Facts:
     channel_status = (doc.channel_status or "").lower()
     shipments = list(doc.shipments.all())
     tn_shipping = channel_status.split("/")[-1] if doc.channel.code == "tiendanube" else ""
+    # TN: "status/payment/shipping"; el tercer tramo es el shipping_status.
+    tn_parts = channel_status.split("/") if doc.channel.code == "tiendanube" else []
+    tn_shipping_status = tn_parts[2] if len(tn_parts) > 2 else ""
     return Facts(
         # Solo si TODO el pedido está cancelado: "cancelled/…" (TN) o "cancelled" (ML, todas las órdenes
         # del pack). Una cancelación parcial de un pack ("cancelled,paid") no cancela el pedido.
@@ -36,7 +41,13 @@ def facts(doc: SalesDocument) -> Facts:
         delivered=any(s.status == "delivered" for s in shipments) or tn_shipping == "delivered",
         full=any(s.method == Shipment.Method.ME_FULL for s in shipments),
         claim_open=doc.claims.filter(status="opened").exists(),
+        shipped=any(s.status == "shipped" for s in shipments) or tn_shipping_status == "shipped",
+        pickup=any(s.method == Shipment.Method.PICKUP for s in shipments),
     )
+
+
+# Estados en los que un pedido todavía no salió del depósito según el sistema.
+NOT_DISPATCHED = (states.NEW, states.PREPARING, states.READY, states.AWAITING_CUSTOMER)
 
 
 def _target(doc: SalesDocument, f: Facts, created: bool) -> tuple[str | None, str]:
@@ -54,6 +65,12 @@ def _target(doc: SalesDocument, f: Facts, created: bool) -> tuple[str | None, st
         return states.CLAIM, "Reclamo abierto"
     if not f.claim_open and status == states.CLAIM:
         return (doc.status_before_claim or states.NEW), "Reclamo cerrado"
+    # El paquete salió por el canal sin que nadie lo marcara acá (Flex escaneado por el repartidor,
+    # Envío Nube despachado desde el admin de TN). Full tiene su propia regla, más abajo.
+    if f.shipped and not f.full and status in NOT_DISPATCHED:
+        if f.pickup:
+            return states.READY_FOR_PICKUP, f"Listo para retirar según {name}"
+        return states.DISPATCHED, f"Despachado según {name}"
     if f.full and status in (states.NEW, states.AWAITING_PAYMENT, states.PREPARING, states.READY):
         return states.DISPATCHED, "Full: despacha Mercado Libre"
     if created and not f.paid and status == states.NEW:

@@ -26,6 +26,18 @@ from .models import Carrier, PickBatch
 ORDER = SalesDocument.DocType.ORDER
 CHANGE_STATUS = "sales.change_order_status"
 VIEW_BATCH = "fulfillment.view_pickbatch"
+PREPARE_LIMIT = 300  # pedidos que muestra Preparar
+DISPATCH_LIMIT = 500  # pedidos que muestra Despacho
+# Pedidos de una tanda que quedaron frenados: no avanzan solos y la tanda no se cierra.
+STALLED = (states.CLAIM, states.AWAITING_CUSTOMER)
+
+
+def _shown_of(qs, shown: int, limit: int) -> int | None:
+    """Total de pedidos si se llegó al tope de la pantalla (para avisar que hay más); si no, None."""
+    if shown < limit:
+        return None
+    total = qs.count()
+    return total if total > shown else None
 
 
 def _soon():
@@ -90,7 +102,7 @@ class PrepareView(PanelPermissionRequiredMixin, View):
             qs = qs.filter(channel__code=p["canal"])
         if p.get("envio"):
             qs = qs.filter(shipments__method=p["envio"]).distinct()
-        orders = list(qs.prefetch_related("lines")[:300])
+        orders = list(qs.prefetch_related("lines")[:PREPARE_LIMIT])
         return render(
             request,
             self.template,
@@ -103,6 +115,7 @@ class PrepareView(PanelPermissionRequiredMixin, View):
                 ],
                 "soon": _soon(),
                 "max_batch": settings.FULFILLMENT_MAX_BATCH,
+                "total": _shown_of(qs, len(orders), PREPARE_LIMIT),
             },
         )
 
@@ -177,6 +190,7 @@ class BatchDetailView(PanelPermissionRequiredMixin, View):
                     "kind": labels.label_kind(shipment),
                     "resolved": bool(resolved_at.get(o.pk)),
                     "cancelled": o.status == states.CANCELLED,
+                    "stalled": o.status in STALLED,
                 }
             )
         removed = (
@@ -293,13 +307,17 @@ class CarrierLabelView(PanelPermissionRequiredMixin, View):
 
     def get(self, request, pk):
         doc, shipment = self._get(pk)
-        return render(request, self.template, self._context(doc, shipment, next=request.GET.get("next", "")))
+        context = self._context(
+            doc, shipment, next=request.GET.get("next", ""), blocked=labels.carrier_label_blocked(shipment)
+        )
+        return render(request, self.template, context)
 
     def post(self, request, pk):
         doc, shipment = self._get(pk)
-        if shipment is None:
-            messages.error(request, "Este pedido no tiene envío cargado: no se puede hacer el rótulo.")
-            return redirect("sales:detail", pk=pk)
+        blocked = labels.carrier_label_blocked(shipment)
+        if blocked:
+            messages.error(request, blocked)
+            return redirect(_safe_next(request.POST.get("next")) or reverse("sales:detail", args=[pk]))
         carrier = request.POST.get("carrier_other", "").strip() or request.POST.get("carrier", "")
         try:
             content = labels.carrier_label(
@@ -340,7 +358,7 @@ class DispatchView(PanelPermissionRequiredMixin, View):
             .prefetch_related("lines", Prefetch("shipments", queryset=Shipment.objects.order_by("id")))
             .order_by(F("deadline").asc(nulls_last=True), "issued_at", "id")
         )
-        orders = list(qs[:500])
+        orders = list(qs[:DISPATCH_LIMIT])
         batch_of = dict(
             batches.active_items()
             .filter(document__in=[o.pk for o in orders])
@@ -365,7 +383,13 @@ class DispatchView(PanelPermissionRequiredMixin, View):
             groups.append(
                 {"status": status, "title": title, "action": action, "button": button, "rows": rows}
             )
-        return render(request, self.template, {"groups": groups, "soon": _soon()})
+        context = {
+            "groups": groups,
+            "soon": _soon(),
+            "shown": len(orders),
+            "total": _shown_of(qs, len(orders), DISPATCH_LIMIT),
+        }
+        return render(request, self.template, context)
 
     def post(self, request):
         action = request.POST.get("action", "")
@@ -400,7 +424,10 @@ class DispatchView(PanelPermissionRequiredMixin, View):
             )
             messages.success(request, f"{parts[0].upper()}{parts[1:]}.{extra}")
         if result.failed:
-            messages.error(request, f"No se pudieron avanzar {len(result.failed)}: {result.failed_text()}.")
+            hint = " Actualizá la página para ver el estado actual." if result.stale else ""
+            messages.error(
+                request, f"No se pudieron avanzar {len(result.failed)}: {result.failed_text()}.{hint}"
+            )
         return redirect("sales:dispatch")
 
     def _labels(self, request, ids):

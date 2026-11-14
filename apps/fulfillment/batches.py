@@ -115,6 +115,14 @@ def _exclusion_reason(doc: SalesDocument, active_batch: dict[int, int], full_ids
     return None
 
 
+def _transition_reason(doc: SalesDocument) -> str:
+    """Motivo claro cuando `change_status` no deja pasar a En preparación (sin el texto técnico)."""
+    doc.refresh_from_db(fields=["status"])
+    if doc.status != states.NEW:
+        return f"ya no está Nuevo (ahora: «{states.label(doc.status)}»)"
+    return "no se pudo pasar a En preparación"
+
+
 def create_batch(document_ids, *, user, request=None) -> tuple[PickBatch | None, list[Excluded]]:
     """Arma una tanda con los pedidos elegidos que sigan Nuevos y los pasa a En preparación.
 
@@ -163,8 +171,8 @@ def create_batch(document_ids, *, user, request=None) -> tuple[PickBatch | None,
                 states.change_status(
                     doc, states.PREPARING, user=user, reason=f"Tanda {batch.number}", request=request
                 )
-            except states.TransitionNotAllowed as exc:
-                excluded.append(Excluded(doc, str(exc)))
+            except states.TransitionNotAllowed:
+                excluded.append(Excluded(doc, _transition_reason(doc)))
                 continue
             PickBatchOrder.objects.create(batch=batch, document=doc)
             added.append(doc)

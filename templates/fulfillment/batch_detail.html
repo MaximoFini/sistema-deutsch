@@ -70,6 +70,7 @@
         <span class="rounded px-2 py-0.5 text-xs font-medium {{ o.status|status_classes }}">{{ o.status|status_label }}</span>
       </div>
       {% if r.cancelled %}<p class="mt-1 font-semibold text-red-800">Cancelado: devolver la mercadería a la estantería.</p>{% endif %}
+      {% if r.stalled %}<p class="mt-1 rounded bg-amber-50 px-2 py-1 font-semibold text-amber-900">Frenado: «{{ o.status|status_label }}». Mientras siga así la tanda no se cierra: si no va a salir ahora, sacalo de la tanda.</p>{% endif %}
       <p class="mt-1">{{ o.customer|default:"—" }} · {{ o.ship_method|ship_label }}</p>
       {% if o.deadline %}<p class="text-xs {% if o.deadline <= soon and not r.resolved %}font-semibold text-red-700{% else %}text-stone-600{% endif %}">Despachar antes de {{ o.deadline|date:"d/m H:i" }}</p>{% endif %}
       <p class="text-xs text-stone-600">{% for l in o.lines.all %}{{ l.quantity|qty }}× {{ l.sku_snapshot|default:l.description_snapshot }}{% if not forloop.last %} · {% endif %}{% endfor %}</p>
@@ -86,8 +87,8 @@
           <a href="{% url 'sales:carrier_label' o.pk %}?next={{ request.path|urlencode }}" class="inline-flex min-h-[44px] items-center rounded border border-stone-300 px-3 py-2 text-xs">Rótulo de transporte</a>
           {% endif %}
           {% if not r.cancelled %}
-          <form method="post" action="{% url 'sales:batch_remove' batch.number o.pk %}" onsubmit="return confirm('¿Sacar {{ o.channel_reference|default:o|escapejs }} de la tanda? Si está En preparación vuelve a Nuevo.')">{% csrf_token %}
-            <button class="min-h-[44px] px-3 py-2 text-xs text-red-700 underline">Sacar de la tanda</button>
+          <form method="post" action="{% url 'sales:batch_remove' batch.number o.pk %}" class="remove-form" data-ref="{{ o.channel_reference|default:o }}">{% csrf_token %}
+            <button class="min-h-[44px] px-3 py-2 text-xs text-red-700 underline disabled:opacity-60">Sacar de la tanda</button>
           </form>
           {% endif %}
         {% endif %}
@@ -127,6 +128,17 @@
   ticks.forEach(function (t) {
     t.checked = get(t.dataset.key);
     t.addEventListener("change", function () { set(t.dataset.key, t.checked); });
+  });
+  // Sacar de la tanda: confirmar y enviar una sola vez (el doble clic daba «ya no está en la tanda»).
+  document.querySelectorAll("form.remove-form").forEach(function (form) {
+    var sending = false;
+    form.addEventListener("submit", function (e) {
+      if (sending || !confirm("¿Sacar " + form.dataset.ref + " de la tanda? Si está En preparación vuelve a Nuevo.")) { e.preventDefault(); return; }
+      sending = true;
+      var button = form.querySelector("button");
+      button.disabled = true;
+      button.textContent = "Sacando…";
+    });
   });
   var clear = document.getElementById("clear-ticks");
   if (clear) clear.addEventListener("click", function () { ticks.forEach(function (t) { t.checked = false; set(t.dataset.key, false); }); });

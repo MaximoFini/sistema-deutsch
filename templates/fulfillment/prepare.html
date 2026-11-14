@@ -22,8 +22,10 @@
   <div class="col-span-2 flex gap-2"><button class="rounded bg-stone-900 px-4 py-2 text-white">Filtrar</button><a href="{% url 'sales:prepare' %}" class="px-2 py-2 underline">Limpiar</a></div>
 </form>
 
+{% if total %}<p class="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">Se muestran los primeros {{ orders|length }} de {{ total }}. Usá los filtros.</p>{% endif %}
+
 {% if orders %}
-<form method="post" id="prepare-form" class="pb-24 md:pb-0">{% csrf_token %}
+<form method="post" id="prepare-form" class="pb-24 md:pb-0" data-max="{{ max_batch }}">{% csrf_token %}
   <label class="mb-2 flex min-h-[44px] items-center gap-3 text-sm">
     <input type="checkbox" id="check-all" class="h-6 w-6 accent-stone-900"> Marcar todos los que se ven ({{ orders|length }})
   </label>
@@ -67,7 +69,8 @@
   </div>
 
   <div class="fixed inset-x-0 bottom-0 z-10 border-t border-stone-200 bg-white p-3 md:static md:mt-4 md:border-0 md:bg-transparent md:p-0">
-    <button class="min-h-[48px] w-full rounded bg-stone-900 px-6 py-3 font-medium text-white md:w-auto">Armar tanda (<span id="pick-count">0</span>)</button>
+    <button id="prepare-submit" class="min-h-[48px] w-full rounded bg-stone-900 px-6 py-3 font-medium text-white disabled:opacity-60 md:w-auto">Armar tanda (<span id="pick-count">0</span>)</button>
+    <p id="pick-max" class="mt-1 hidden text-sm font-semibold text-red-700" role="alert">Máximo {{ max_batch }} por tanda. Desmarcá algunos.</p>
     <p class="mt-1 hidden text-xs text-stone-500 md:block">Hasta {{ max_batch }} pedidos por tanda.</p>
   </div>
 </form>
@@ -75,20 +78,36 @@
 (function () {
   var form = document.getElementById("prepare-form");
   var all = document.getElementById("check-all");
+  var button = document.getElementById("prepare-submit");
+  var maxWarning = document.getElementById("pick-max");
+  var max = parseInt(form.dataset.max, 10) || 0;
+  var sending = false;
   // Tabla y tarjetas repiten las casillas: se sincronizan por valor y solo se envía una de cada.
   function boxes() { return Array.prototype.slice.call(form.querySelectorAll("input.pick")); }
   function sync(value, checked) { boxes().forEach(function (b) { if (b.value === value) b.checked = checked; }); }
   function count() {
     var set = {};
     boxes().forEach(function (b) { if (b.checked) set[b.value] = 1; });
-    document.getElementById("pick-count").textContent = Object.keys(set).length;
+    var n = Object.keys(set).length;
+    document.getElementById("pick-count").textContent = n;
+    // Pasado el tope no se deja enviar (el servidor igual lo valida).
+    var over = max > 0 && n > max;
+    maxWarning.classList.toggle("hidden", !over);
+    if (!sending) button.disabled = over;
   }
   boxes().forEach(function (b) { b.addEventListener("change", function () { sync(b.value, b.checked); count(); }); });
   all.addEventListener("change", function () { boxes().forEach(function (b) { b.checked = all.checked; }); count(); });
-  form.addEventListener("submit", function () {
+  form.addEventListener("submit", function (e) {
+    // Un solo envío: el doble clic armaba la tanda y después mostraba un error confuso.
+    if (sending || button.disabled) { e.preventDefault(); return; }
+    sending = true;
+    button.disabled = true;
+    button.textContent = "Armando…";
     var seen = {};
     boxes().forEach(function (b) { if (b.checked && seen[b.value]) { b.disabled = true; } else if (b.checked) { seen[b.value] = 1; } });
   });
+  // Al volver con «Atrás» el navegador puede mostrar la página vieja con el botón trabado.
+  window.addEventListener("pageshow", function (e) { if (e.persisted) location.reload(); });
   count();
 })();
 </script>

@@ -64,6 +64,11 @@ def refresh(client, shipment_id) -> Shipment | None:
     address = (
         data.get("receiver_address") or ((data.get("destination") or {}).get("shipping_address")) or None
     )
+    previous = (
+        Shipment.objects.filter(document=document, external_id=str(shipment_id))
+        .values("address", "logistic_type", "tracking_number")
+        .first()
+    )
     shipment, _ = Shipment.objects.update_or_create(
         document=document,
         external_id=str(shipment_id),
@@ -79,11 +84,33 @@ def refresh(client, shipment_id) -> Shipment | None:
             "address": address,
         },
     )
+    if previous is not None and previous != {
+        "address": shipment.address,
+        "logistic_type": shipment.logistic_type,
+        "tracking_number": shipment.tracking_number,
+    }:
+        _drop_saved_labels(shipment)
     orders.refresh_channel_status(document)
     from apps.sales import sync as order_sync
 
     order_sync.sync_internal_status(document)
     return shipment
+
+
+def _drop_saved_labels(shipment: Shipment) -> None:
+    """ML cambió el envío (domicilio, logística o seguimiento): la etiqueta guardada ya no sirve.
+
+    Se borran el PDF y el ZPL para que la próxima impresión los pida de nuevo a Mercado Libre.
+    """
+    fields = [name for name in ("label_file", "label_zpl_file") if getattr(shipment, name)]
+    if not fields:
+        return
+    for name in fields:
+        getattr(shipment, name).delete(save=False)
+    # La etiqueta impresa quedó vieja: en Despacho vuelve a figurar "Etiqueta sin imprimir".
+    shipment.label_printed_at = None
+    shipment.save(update_fields=[*fields, "label_printed_at", "updated_at"])
+    logger.info("Envío ML %s cambió: se descartó la etiqueta guardada", shipment.external_id)
 
 
 def refresh_open(client) -> dict:

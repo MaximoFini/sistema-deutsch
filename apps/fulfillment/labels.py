@@ -25,6 +25,8 @@ from .batches import order_ref
 logger = logging.getLogger(__name__)
 MAX_PACKAGES = 50
 KIND_ML, KIND_CARRIER = "ml", "rotulo"
+# Solo estos envíos llevan rótulo propio: los demás usan la etiqueta del canal o no viajan.
+CARRIER_LABEL_METHODS = {Shipment.Method.CARRIER, Shipment.Method.OTHER}
 
 
 class LabelError(Exception):
@@ -73,7 +75,7 @@ def label_kind(shipment: Shipment | None) -> str:
         return ""
     if shipment.method in _ml_methods():
         return KIND_ML
-    if shipment.method == Shipment.Method.CARRIER:
+    if shipment.method in CARRIER_LABEL_METHODS:
         return KIND_CARRIER
     if shipment.method == Shipment.Method.ENVIO_NUBE:
         return "envio_nube"
@@ -183,8 +185,29 @@ def parse_packages(value) -> int:
     return packages
 
 
+def carrier_label_blocked(shipment: Shipment | None) -> str:
+    """Por qué este envío no lleva rótulo propio ("" si sí lo lleva: Transporte u Otro)."""
+    if shipment is None:
+        return "Este pedido no tiene envío cargado: no se puede hacer el rótulo."
+    if shipment.method in CARRIER_LABEL_METHODS:
+        return ""
+    prefix = "Este pedido no lleva rótulo propio: "
+    if shipment.method in _ml_methods():
+        return prefix + "usa la etiqueta de Mercado Libre."
+    if shipment.method == Shipment.Method.ME_FULL:
+        return prefix + "es Full, lo despacha Mercado Libre."
+    if shipment.method == Shipment.Method.ENVIO_NUBE:
+        return prefix + "la etiqueta se imprime desde Tiendanube."
+    if shipment.method == Shipment.Method.PICKUP:
+        return prefix + "lo retira el cliente en el local."
+    return prefix + "el envío lo maneja Mercado Libre."
+
+
 def carrier_label(shipment: Shipment, *, carrier: str, packages, user, request=None) -> bytes:
     """Guarda expreso y bultos en el envío y devuelve el rótulo (una página por bulto)."""
+    blocked = carrier_label_blocked(shipment)
+    if blocked:
+        raise LabelError(blocked)
     carrier = (carrier or "").strip()[:100]
     if not carrier:
         raise LabelError("Elegí el expreso o escribí cuál es.")
