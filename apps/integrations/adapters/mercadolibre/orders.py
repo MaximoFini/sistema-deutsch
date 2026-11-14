@@ -223,6 +223,7 @@ def upsert_order(order: dict) -> tuple[SalesDocument, bool]:
         ).first()
         if key_ref is not None:
             document = SalesDocument.objects.get(pk=key_ref.object_id)
+    created = document is None
     if document is None:
         document = SalesDocument.objects.create(
             doc_type=SalesDocument.DocType.ORDER,
@@ -233,11 +234,24 @@ def upsert_order(order: dict) -> tuple[SalesDocument, bool]:
         )
     link_external(CHANNEL, document, key, {"kind": "pack" if order.get("pack_id") else "order"})
     link_external(CHANNEL, document, order_key, _snapshot(order))
+    document.channel_reference = (
+        f"ML pack {order['pack_id']}" if order.get("pack_id") else f"ML {order['id']}"
+    )[:60]
+    document.save(update_fields=["channel_reference", "updated_at"])
     rebuild(document)
+    from apps.sales import sync as order_sync  # M4: estado interno según los hechos del canal
+
+    if created:
+        order_sync.on_document_created(document, notify=False)  # el aviso espera al envío (Full)
+        document._created = True
+    else:
+        order_sync.sync_internal_status(document)
     return document, True
 
 
 def process_order(client, order: dict, refresh_related: bool = True) -> SalesDocument:
+    from apps.sales import sync as order_sync
+
     from . import billing, shipments
 
     document, changed = upsert_order(order)
@@ -246,6 +260,8 @@ def process_order(client, order: dict, refresh_related: bool = True) -> SalesDoc
         if shipping_id:
             shipments.refresh(client, shipping_id)
         billing.refresh(client, order["id"], document)
+    if getattr(document, "_created", False):
+        order_sync.after_created_complete(document)
     return document
 
 

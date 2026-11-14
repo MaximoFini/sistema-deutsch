@@ -66,6 +66,13 @@ def upsert_claim(client, c: dict) -> Claim:
             "data": {"related_entities": c.get("related_entities"), "resolution": c.get("resolution")},
         },
     )
+    if claim.document_id:
+        from apps.sales import returns as sales_returns
+        from apps.sales import sync as order_sync
+
+        if claim.return_status:
+            sales_returns.ensure_expected_for_claim(claim)
+        order_sync.sync_internal_status(claim.document)
     if claim.action_required:
         alerts.emit(
             "ml.claim_opened",

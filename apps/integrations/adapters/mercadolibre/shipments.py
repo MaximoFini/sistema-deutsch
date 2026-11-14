@@ -80,6 +80,9 @@ def refresh(client, shipment_id) -> Shipment | None:
         },
     )
     orders.refresh_channel_status(document)
+    from apps.sales import sync as order_sync
+
+    order_sync.sync_internal_status(document)
     return shipment
 
 

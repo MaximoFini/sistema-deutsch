@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Nuevo pedido manual · Pedidos{% endblock %}
+{% block content %}
+<a href="{% url 'sales:list' %}" class="text-sm underline">← Pedidos</a>
+<h1 class="mb-1 mt-2 text-xl font-semibold">Nuevo pedido manual</h1>
+<p class="mb-4 text-sm text-stone-600">Para pedidos que no vienen de ningún canal. Los de clientes mayoristas se cargan desde la tienda mayorista.</p>
+<form method="post" class="grid gap-4 text-sm">{% csrf_token %}
+  <section class="rounded-lg border border-stone-200 bg-white p-4">
+    <h2 class="mb-2 font-semibold">Cliente</h2>
+    <input type="hidden" name="customer_id" id="customer_id" value="{{ form.customer_id|default:'' }}">
+    <p id="customer_chosen" class="mb-2 text-emerald-800"></p>
+    <input type="search" name="q" placeholder="Buscar cliente existente (nombre, documento o email)" class="w-full rounded border border-stone-300 px-2 py-2 md:w-96"
+           hx-get="{% url 'sales:customer_search' %}" hx-trigger="keyup changed delay:300ms" hx-target="#customer_results">
+    <div id="customer_results" class="mt-1"></div>
+    <p class="mt-3 text-xs text-stone-500">O cargá un cliente nuevo:</p>
+    <div class="mt-1 grid gap-2 md:grid-cols-5">
+      <input name="legal_name" value="{{ form.legal_name|default:'' }}" placeholder="Nombre o razón social" class="rounded border border-stone-300 px-2 py-2 md:col-span-2">
+      <input name="tax_id" value="{{ form.tax_id|default:'' }}" placeholder="DNI o CUIT" class="rounded border border-stone-300 px-2 py-2">
+      <select name="vat_condition" class="rounded border border-stone-300 px-2 py-2">{% for code, label in vat_choices %}<option value="{{ code }}" {% if code == "CF" %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+      <input name="email" value="{{ form.email|default:'' }}" placeholder="Email" class="rounded border border-stone-300 px-2 py-2">
+      <input name="phone" value="{{ form.phone|default:'' }}" placeholder="Teléfono" class="rounded border border-stone-300 px-2 py-2">
+    </div>
+  </section>
+
+  <section class="rounded-lg border border-stone-200 bg-white p-4">
+    <h2 class="mb-2 font-semibold">Productos</h2>
+    <input type="search" placeholder="Buscar producto por SKU, nombre o código de barras" class="w-full rounded border border-stone-300 px-2 py-2 md:w-96"
+           hx-get="{% url 'sales:product_search' %}" hx-trigger="keyup changed delay:300ms" hx-target="#product_results" name="q">
+    <div id="product_results" class="mt-1"></div>
+    <table class="mt-3 w-full">
+      <thead class="text-left text-xs text-stone-500"><tr><th>Producto</th><th class="w-24">Cantidad</th><th class="w-36">Precio unitario</th><th></th></tr></thead>
+      <tbody id="lines"></tbody>
+    </table>
+    <p id="no_lines" class="mt-2 text-stone-500">Todavía no agregaste productos.</p>
+  </section>
+
+  <section class="grid gap-4 md:grid-cols-2">
+    <div class="rounded-lg border border-stone-200 bg-white p-4">
+      <h2 class="mb-2 font-semibold">Entrega</h2>
+      <select name="delivery" required class="w-full rounded border border-stone-300 px-2 py-2">
+        <option value="">Elegí…</option>
+        {% for code, label in delivery_methods %}<option value="{{ code }}" {% if form.delivery == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <div class="mt-2 grid gap-2 md:grid-cols-3">
+        <input name="street" placeholder="Domicilio (si se envía)" class="rounded border border-stone-300 px-2 py-2 md:col-span-3">
+        <input name="city" placeholder="Localidad" class="rounded border border-stone-300 px-2 py-2">
+        <input name="province" placeholder="Provincia" class="rounded border border-stone-300 px-2 py-2">
+      </div>
+      <textarea name="notes" placeholder="Observaciones" class="mt-2 w-full rounded border border-stone-300 px-2 py-2">{{ form.notes|default:'' }}</textarea>
+    </div>
+    <div class="rounded-lg border border-stone-200 bg-white p-4">
+      <h2 class="mb-2 font-semibold">Cobro y facturación</h2>
+      <label class="flex items-center gap-2"><input type="checkbox" name="paid" value="1"> Cobrado</label>
+      <select name="payment_method" class="mt-2 w-full rounded border border-stone-300 px-2 py-2">{% for code, label in payment_methods %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select>
+      <label class="mt-3 flex items-center gap-2"><input type="checkbox" name="invoiced" value="1"> Facturado en Contabilium</label>
+      <input name="invoice_number" placeholder="N.º de comprobante" class="mt-2 w-full rounded border border-stone-300 px-2 py-2">
+    </div>
+  </section>
+  <div><button class="rounded bg-stone-900 px-5 py-3 font-medium text-white">Crear pedido</button></div>
+</form>
+<template id="line_tpl">
+  <tr class="border-t border-stone-100">
+    <td class="py-1"><input type="hidden" name="variant_id"><span class="font-mono text-xs" data-sku></span> <span data-name></span></td>
+    <td><input name="quantity" value="1" inputmode="decimal" class="w-20 rounded border border-stone-300 px-2 py-1"></td>
+    <td><input name="price" inputmode="decimal" class="w-32 rounded border border-stone-300 px-2 py-1"></td>
+    <td><button type="button" class="text-xs underline" data-remove>Quitar</button></td>
+  </tr>
+</template>
+<script>
+  function addLine(btn) {
+    const row = document.getElementById("line_tpl").content.firstElementChild.cloneNode(true);
+    row.querySelector("[name=variant_id]").value = btn.dataset.id;
+    row.querySelector("[data-sku]").textContent = btn.dataset.sku;
+    row.querySelector("[data-name]").textContent = btn.dataset.name;
+    row.querySelector("[name=price]").value = btn.dataset.price || "";
+    row.querySelector("[data-remove]").addEventListener("click", () => { row.remove(); toggleEmpty(); });
+    document.getElementById("lines").appendChild(row);
+    toggleEmpty();
+  }
+  function chooseCustomer(btn) {
+    document.getElementById("customer_id").value = btn.dataset.id;
+    document.getElementById("customer_chosen").textContent = "Cliente: " + btn.dataset.name;
+    document.getElementById("customer_results").innerHTML = "";
+  }
+  function toggleEmpty() { document.getElementById("no_lines").hidden = document.getElementById("lines").children.length > 0; }
+</script>
+{% endblock %}

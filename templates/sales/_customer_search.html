@@ -1,0 +1,7 @@
+{% for c in results %}
+<button type="button" onclick="chooseCustomer(this)" data-id="{{ c.pk }}" data-name="{{ c.legal_name }}{% if c.tax_id %} ({{ c.tax_id }}){% endif %}"
+        class="flex w-full items-center gap-2 border-b border-stone-100 py-1 text-left text-xs hover:bg-stone-50">
+  <span>{{ c.legal_name }}</span><span class="text-stone-500">{{ c.get_tax_id_type_display }} {{ c.tax_id }} · {{ c.email }}</span>
+  {% if c.kind == "wholesale" %}<span class="rounded bg-amber-100 px-1 text-amber-800">mayorista</span>{% endif %}
+</button>
+{% empty %}<p class="text-xs text-stone-500">Escribí al menos 2 caracteres. Sin resultados por ahora.</p>{% endfor %}

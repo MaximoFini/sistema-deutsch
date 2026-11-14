@@ -23,6 +23,11 @@ ACTIONS: dict[str, str] = {
     "order.status_changed": "Cambio de estado de pedido",
     "order.manual_created": "Pedido manual creado",
     "order.returned": "Devolución registrada",
+    "order.payment_updated": "Cobro de pedido actualizado",
+    "order.invoice_updated": "Facturación de pedido actualizada",
+    "return.expected_created": "Devolución esperada cargada",
+    "return.received": "Devolución recibida",
+    "return.adjusted": "Devolución ajustada en Contabilium",
     # M6 · Mercado Libre
     "ml.question_answered": "Respuesta a pregunta de ML",
     "ml.message_sent": "Mensaje enviado en ML",

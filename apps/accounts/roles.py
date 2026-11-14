@@ -28,8 +28,20 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "catalog.import_contabilium",
         "catalog.view_channel_stock",
         "catalog.view_quality",
+        "sales.view_salesdocument",
+        "sales.change_order_status",
+        "sales.cancel_manual_order",
+        "sales.add_manual_order",
+        "sales.receive_return",
+        "sales.mark_return_adjusted",
     ],
-    DEPOSITO: ["alerts.view_alert", "catalog.view_variant"],
+    DEPOSITO: [
+        "alerts.view_alert",
+        "catalog.view_variant",
+        "sales.view_salesdocument",
+        "sales.change_order_status",
+        "sales.receive_return",
+    ],
     VENTAS: [
         "alerts.view_alert",
         "conversations.answer_question",
@@ -39,8 +51,13 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "catalog.manage_links",
         "catalog.view_channel_stock",
         "catalog.view_quality",
+        "sales.view_salesdocument",
+        "sales.change_order_status",
+        "sales.cancel_manual_order",
+        "sales.add_manual_order",
+        "sales.receive_return",
     ],
-    VENDEDOR: ["alerts.view_alert", "catalog.view_variant"],
+    VENDEDOR: ["alerts.view_alert", "catalog.view_variant", "sales.view_salesdocument"],
 }
 
 ROLE_NAMES = list(ROLE_PERMISSIONS)
@@ -65,6 +82,12 @@ PERMISSION_LABELS: dict[str, str] = {
     "catalog.import_contabilium": "Importar el archivo de productos de Contabilium",
     "catalog.view_channel_stock": "Ver stock y precio por canal",
     "catalog.view_quality": "Ver el panel de calidad de datos",
+    "sales.view_salesdocument": "Ver pedidos",
+    "sales.change_order_status": "Cambiar el estado de los pedidos",
+    "sales.cancel_manual_order": "Cancelar pedidos manuales",
+    "sales.add_manual_order": "Cargar y editar pedidos manuales",
+    "sales.receive_return": "Registrar devoluciones",
+    "sales.mark_return_adjusted": "Marcar devoluciones como ajustadas en Contabilium",
 }
 
 

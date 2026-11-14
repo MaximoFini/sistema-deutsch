@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Recibir devolución · Pedidos{% endblock %}
+{% block content %}
+<a href="{% url 'sales:returns' %}" class="text-sm underline">← Devoluciones</a>
+<h1 class="mb-1 mt-2 text-xl font-semibold">Recibir devolución de {{ ret.related_document.channel_reference|default:ret.related_document }}</h1>
+<p class="mb-4 text-sm text-stone-600">Indicá cuánto llegó de cada producto y en qué estado. Al guardar se avisa a administración para ajustar el stock en Contabilium.</p>
+{% if info.received_at %}<p class="rounded border border-emerald-200 bg-emerald-50 p-3 text-sm">Ya fue recibida el {{ info.received_at|date:"d/m/Y H:i" }} por {{ info.received_by }}.</p>{% else %}
+<form method="post" class="grid gap-3 text-sm">{% csrf_token %}
+  {% for l in lines %}
+  <div class="flex flex-wrap items-center gap-3 rounded-lg border border-stone-200 bg-white p-3">
+    <div class="min-w-0 flex-1"><span class="font-mono text-xs">{{ l.sku_snapshot }}</span> {{ l.description_snapshot }} <span class="text-stone-500">(esperado {{ l.quantity|floatformat:"-2" }})</span></div>
+    <label class="flex items-center gap-1">Recibido <input name="qty_{{ l.pk }}" value="{{ l.quantity|floatformat:'-2' }}" inputmode="decimal" class="w-16 rounded border border-stone-300 px-2 py-2"></label>
+    <label class="flex items-center gap-1"><input type="radio" name="cond_{{ l.pk }}" value="resellable" required> Apto para reventa</label>
+    <label class="flex items-center gap-1"><input type="radio" name="cond_{{ l.pk }}" value="damaged"> Dañado</label>
+  </div>
+  {% endfor %}
+  <textarea name="comment" placeholder="Comentario (cómo llegó, qué faltó…)" class="rounded border border-stone-300 px-2 py-2"></textarea>
+  <div><button class="rounded bg-stone-900 px-5 py-3 font-medium text-white">Registrar recepción</button></div>
+</form>
+{% endif %}
+{% endblock %}

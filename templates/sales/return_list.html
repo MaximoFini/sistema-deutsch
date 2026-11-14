@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Devoluciones · Pedidos{% endblock %}
+{% block content %}
+<a href="{% url 'sales:list' %}" class="text-sm underline">← Pedidos</a>
+<h1 class="mb-3 mt-2 text-xl font-semibold">Devoluciones</h1>
+<div class="mb-4 flex gap-2 text-sm">
+  <a href="?vista=esperadas" class="rounded-full border px-3 py-1 {% if vista != 'recibidas' %}bg-stone-900 text-white{% endif %}">Esperadas</a>
+  <a href="?vista=recibidas" class="rounded-full border px-3 py-1 {% if vista == 'recibidas' %}bg-stone-900 text-white{% endif %}">Recibidas{% if pending_adjust %} · {{ pending_adjust }} sin ajustar{% endif %}</a>
+</div>
+<div class="grid gap-3">
+{% for info in items %}
+  {% with ret=info.document order=info.document.related_document %}
+  <div class="flex flex-wrap items-center gap-3 rounded-lg border border-stone-200 bg-white p-3 text-sm">
+    <div class="min-w-0 flex-1">
+      <a href="{% url 'sales:detail' order.pk %}" class="font-medium underline">{{ order.channel_reference|default:order }}</a>
+      <span class="text-stone-500">· {{ order.customer|default:"" }} · {{ info.get_source_display }}{% if info.claim %} {{ info.claim.external_id }} ({{ info.claim.return_status }}){% endif %}</span>
+      <div class="text-xs text-stone-600">{% for l in ret.lines.all %}{{ l.quantity|floatformat:"-2" }}× {{ l.sku_snapshot }}{% if l.condition %} ({{ l.get_condition_display }}){% endif %}{% if not forloop.last %} · {% endif %}{% endfor %}</div>
+      {% if info.comment %}<div class="text-xs text-stone-500">“{{ info.comment }}”</div>{% endif %}
+    </div>
+    {% if not info.received_at %}
+      <a href="{% url 'sales:return_receive' ret.pk %}" class="rounded bg-stone-900 px-4 py-2 text-white">Registrar recepción</a>
+    {% elif info.adjusted_in_contabilium %}
+      <span class="text-xs text-emerald-700">Ajustado en Contabilium · {{ info.adjusted_by }} {{ info.adjusted_at|date:"d/m" }}</span>
+    {% elif perms.sales.mark_return_adjusted %}
+      <form method="post" action="{% url 'sales:return_adjusted' ret.pk %}">{% csrf_token %}<button class="rounded border border-stone-300 px-3 py-2">Marcar ajustado en Contabilium</button></form>
+    {% else %}<span class="text-xs text-amber-700">Falta ajustar en Contabilium</span>{% endif %}
+  </div>
+  {% endwith %}
+{% empty %}
+  <p class="rounded-lg border border-stone-200 bg-white p-6 text-center text-sm text-stone-500">{% if vista == "recibidas" %}Todavía no se recibió ninguna devolución.{% else %}No hay devoluciones esperadas.{% endif %}</p>
+{% endfor %}
+</div>
+{% endblock %}

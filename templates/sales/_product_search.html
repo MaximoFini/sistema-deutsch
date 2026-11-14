@@ -1,0 +1,8 @@
+{% for v, price in rows %}
+<button type="button" onclick="addLine(this)" data-id="{{ v.pk }}" data-sku="{{ v.sku }}" data-name="{{ v.product.name }}{% for k, val in v.attributes.items %} {{ val }}{% endfor %}" data-price="{{ price|default_if_none:''|stringformat:'s' }}"
+        class="flex w-full items-center gap-2 border-b border-stone-100 py-1 text-left text-xs hover:bg-stone-50">
+  <span class="font-mono">{{ v.sku }}</span><span>{{ v.product.name }}</span>
+  <span class="text-stone-500">{% for k, val in v.attributes.items %}{{ val }} {% endfor %}</span>
+  <span class="ml-auto">{% if price is not None %}${{ price|floatformat:"2g" }}{% else %}sin precio{% endif %}</span>
+</button>
+{% empty %}<p class="text-xs text-stone-500">Escribí al menos 2 caracteres. Sin resultados por ahora.</p>{% endfor %}

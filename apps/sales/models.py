@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import models
 
 from apps.core.models import CURRENCY_CHOICES, TimeStampedModel, money_field, quantity_field
@@ -22,7 +23,13 @@ class SalesDocument(TimeStampedModel):
     customer = models.ForeignKey(
         "customers.Customer", null=True, blank=True, on_delete=models.PROTECT, related_name="documents"
     )
-    status = models.CharField("estado", max_length=30, default="new", db_index=True)  # máquina de estados: M4
+    status = models.CharField("estado", max_length=30, default="new", db_index=True)  # ver sales/states.py
+    status_before_claim = models.CharField("estado antes del reclamo", max_length=30, blank=True)
+    status_changed_at = models.DateTimeField("último cambio de estado", null=True, blank=True)
+    channel_reference = models.CharField("referencia del canal", max_length=60, blank=True, db_index=True)
+    invoiced_in_contabilium = models.BooleanField("facturado en Contabilium", default=False)
+    invoice_number = models.CharField("número de comprobante", max_length=40, blank=True)
+    invoiced_at = models.DateTimeField("facturado", null=True, blank=True)
     channel_status = models.CharField("estado en el canal", max_length=60, blank=True)
     issued_at = models.DateTimeField("fecha", db_index=True)
     currency = models.CharField("moneda", max_length=3, choices=CURRENCY_CHOICES, default="ARS")
@@ -42,6 +49,13 @@ class SalesDocument(TimeStampedModel):
         verbose_name_plural = "documentos de venta"
         ordering = ["-issued_at", "-id"]
         constraints = [models.UniqueConstraint(fields=["doc_type", "number"], name="unique_doc_number")]
+        permissions = [
+            ("change_order_status", "Puede cambiar el estado interno de un pedido"),
+            ("cancel_manual_order", "Puede cancelar pedidos manuales"),
+            ("add_manual_order", "Puede cargar y editar pedidos manuales"),
+            ("receive_return", "Puede registrar devoluciones"),
+            ("mark_return_adjusted", "Puede marcar devoluciones como ajustadas en Contabilium"),
+        ]
 
     def __str__(self) -> str:
         return f"{self.get_doc_type_display()} #{self.number}"
@@ -71,6 +85,13 @@ class SalesLine(models.Model):
     discount = money_field("descuento")
     vat_rate = models.DecimalField("alícuota IVA %", max_digits=5, decimal_places=2, default=21)
     line_total = money_field("total línea")
+    condition = models.CharField(
+        "estado de la mercadería",
+        max_length=12,
+        blank=True,
+        default="",
+        choices=[("", "—"), ("resellable", "Apto para reventa"), ("damaged", "Dañado")],
+    )  # solo en devoluciones
 
     class Meta:
         verbose_name = "línea"
@@ -121,6 +142,7 @@ class Shipment(TimeStampedModel):
         ENVIO_NUBE = "envio_nube", "Envío Nube"
         PICKUP = "pickup", "Retiro en local"
         CARRIER = "carrier", "Transporte"
+        OTHER = "other", "Otro"
 
     document = models.ForeignKey(SalesDocument, on_delete=models.CASCADE, related_name="shipments")
     external_id = models.CharField("id en el canal", max_length=64, blank=True, db_index=True)
@@ -139,3 +161,32 @@ class Shipment(TimeStampedModel):
     class Meta:
         verbose_name = "envío"
         verbose_name_plural = "envíos"
+
+
+class ReturnInfo(models.Model):
+    """Datos de recepción de una devolución (uno a uno con el SalesDocument de tipo devolución)."""
+
+    class Source(models.TextChoices):
+        ML_CLAIM = "ml_claim", "Reclamo de Mercado Libre"
+        MANUAL = "manual", "Cargada a mano"
+
+    document = models.OneToOneField(SalesDocument, on_delete=models.CASCADE, related_name="return_info")
+    source = models.CharField("origen", max_length=10, choices=Source.choices)
+    claim = models.ForeignKey(
+        "conversations.Claim", null=True, blank=True, on_delete=models.SET_NULL, related_name="returns"
+    )
+    expected_at = models.DateTimeField("esperada desde", auto_now_add=True)
+    received_at = models.DateTimeField("recibida", null=True, blank=True)
+    received_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    comment = models.TextField("comentario", blank=True)
+    adjusted_in_contabilium = models.BooleanField("ajustado en Contabilium", default=False)
+    adjusted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    adjusted_at = models.DateTimeField("ajustado", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "devolución"
+        verbose_name_plural = "devoluciones"

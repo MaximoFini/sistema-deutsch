@@ -167,6 +167,8 @@ def upsert_order(order: dict) -> SalesDocument:
         "total": dec(order.get("total"), 0),
         "notes": order.get("note") or "",
     }
+    created = document is None
+    values["channel_reference"] = f"TN #{order.get('number') or order['id']}"[:60]
     if document is None:
         document = SalesDocument.objects.create(
             doc_type=SalesDocument.DocType.ORDER,
@@ -241,6 +243,12 @@ def upsert_order(order: dict) -> SalesDocument:
             "token": order.get("token"),
         },
     )
+    from apps.sales import sync as order_sync  # M4: estado interno según los hechos del canal
+
+    if created:
+        order_sync.on_document_created(document)
+    else:
+        order_sync.sync_internal_status(document)
     return document
 
 

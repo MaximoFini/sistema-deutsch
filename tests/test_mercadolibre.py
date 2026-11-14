@@ -413,9 +413,11 @@ def test_old_order_does_not_overwrite(catalog_variants):
 def test_update_keeps_internal_status(catalog_variants):
     doc, _ = orders.upsert_order(S.order())
     SalesDocument.objects.filter(pk=doc.pk).update(status="preparing")
-    orders.upsert_order(S.order(updated="2026-11-13T10:00:00.000-03:00", status="cancelled"))
+    # Una actualización sin hechos nuevos (sigue pagada) no toca el estado interno.
+    # (Las cancelaciones sí lo mueven: lo cubre test_centro_pedidos.)
+    orders.upsert_order(S.order(updated="2026-11-13T10:00:00.000-03:00", status="paid"))
     doc.refresh_from_db()
-    assert doc.status == "preparing" and doc.channel_status.startswith("cancelled")
+    assert doc.status == "preparing" and doc.channel_status.startswith("paid")
 
 
 def test_unknown_sku_alert(users_by_role):
