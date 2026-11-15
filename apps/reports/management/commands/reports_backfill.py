@@ -6,6 +6,7 @@ manage.py reports_backfill ml_fees      # comisiones y costos de envío de ML (l
 """
 
 from django.core.management.base import BaseCommand, CommandError
+from django.db import connection
 
 from apps.reports import backfill, tasks
 
@@ -35,4 +36,10 @@ class Command(BaseCommand):
                 f"Listo: {stats['completed']} ventas completas, {stats['still_pending']} siguen pendientes, "
                 f"{len(stats['errors'])} con error."
                 + (f" Se cortó: {stats['stopped']}" if stats["stopped"] else "")
+            )
+        # Después de cambiar muchas filas, estadísticas al día: si no, Postgres puede planear las
+        # consultas de los reportes como si las tablas estuvieran vacías (se vio 30–60 s en vez de 0,3 s).
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "ANALYZE sales_salesdocument, sales_salesline, sales_shipment, inventory_stockmovement"
             )

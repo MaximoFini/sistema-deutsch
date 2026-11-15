@@ -488,6 +488,13 @@ def _report_volume():
             [now, created[-1].pk],
         )
     StockLevel.objects.bulk_create([StockLevel(variant=v, warehouse=warehouse, on_hand=3) for v in variants])
+    # Estadísticas al día, como en producción (autovacuum): sin esto el planificador puede usar las de
+    # tablas casi vacías que dejan otros tests y elegir un plan malo (una vez se vio 42 s).
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "ANALYZE sales_salesdocument, sales_salesline, sales_shipment, sales_payment, "
+            "inventory_stockmovement, inventory_stocklevel, conversations_question"
+        )
 
 
 def test_reports_volume_under_two_seconds(admin_client):
@@ -513,6 +520,13 @@ def test_reports_volume_under_two_seconds(admin_client):
             assert response.status_code == 200
             assert len(ctx) <= budget, f"{name}{extra}: {len(ctx)} consultas (presupuesto {budget})"
         timings[f"{name}{extra}"] = f"{best:.2f} s / {len(ctx)} consultas"
+        if best >= limit:
+            slow = max(ctx.captured_queries, key=lambda q: float(q["time"]))
+            with connection.cursor() as c:
+                c.execute("EXPLAIN " + slow["sql"])
+                plan = "\n".join(r[0] for r in c.fetchall())
+            # Diagnóstico si vuelve a pasar: la consulta más lenta y su plan.
+            print("Consulta más lenta:", slow["time"], slow["sql"][:600], "\nPlan:\n", plan)
         assert best < limit, f"{name}{extra} tardó {best:.2f} s (límite {limit:.0f} s)"
     kpis = admin_client.get(reverse("reports:summary") + year).context["kpis"]["by_key"]
     assert kpis["orders"]["value"] == REPORT_ORDERS - REPORT_ORDERS // 10  # sin los cancelados
