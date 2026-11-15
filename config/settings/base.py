@@ -152,6 +152,17 @@ CONTABILIUM_MAX_FILE_MB = 5
 ORDERS_FLEX_WARNING_MINUTES = env.int("ORDERS_FLEX_WARNING_MINUTES", default=120)
 ORDERS_MANUAL_PENDING_HOURS = env.int("ORDERS_MANUAL_PENDING_HOURS", default=24)
 
+# ── Operación de Mercado Libre (M6) ──
+ML_QUESTION_WARNING_HOURS = env.int("ML_QUESTION_WARNING_HOURS", default=12)
+ML_CLAIM_WARNING_HOURS = sorted(env.list("ML_CLAIM_WARNING_HOURS", cast=int, default=[24, 4]), reverse=True)
+ML_HEALTH_MIN_SCORE = env.float("ML_HEALTH_MIN_SCORE", default=0.7)
+# Enlaces a Mercado Libre ({id} = publicación, {order_id} = venta). Se confirman con la cuenta real.
+ML_LISTING_EDIT_URL = env(
+    "ML_LISTING_EDIT_URL", default="https://www.mercadolibre.com.ar/publicaciones/{id}/modificar"
+)
+ML_CLAIM_URL = env("ML_CLAIM_URL", default="https://www.mercadolibre.com.ar/ventas/{order_id}/detalle")
+ML_SIZE_CHART_TTL_HOURS = env.int("ML_SIZE_CHART_TTL_HOURS", default=24)
+
 # ── Preparación y despacho (M5) ──
 # Remitente del rótulo de transporte 10×15. Si falta el nombre, el rótulo dice "Deutsch".
 SENDER_NAME = env("SENDER_NAME", default="")

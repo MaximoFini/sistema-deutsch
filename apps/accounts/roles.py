@@ -19,15 +19,19 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "integrations.retry_event",
         "integrations.toggle_write_switch",
         "integrations.manage_connection",
+        "conversations.view_question",
         "conversations.answer_question",
+        "conversations.view_message",
         "conversations.send_message",
         "conversations.view_claim",
+        "conversations.manage_saved_replies",
         "core.change_source_of_truth",
         "catalog.view_variant",
         "catalog.manage_links",
         "catalog.import_contabilium",
         "catalog.view_channel_stock",
         "catalog.view_quality",
+        "catalog.view_listing_health",
         "sales.view_salesdocument",
         "sales.change_order_status",
         "sales.cancel_manual_order",
@@ -47,13 +51,17 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
     ],
     VENTAS: [
         "alerts.view_alert",
+        "conversations.view_question",
         "conversations.answer_question",
+        "conversations.view_message",
         "conversations.send_message",
         "conversations.view_claim",
+        "conversations.manage_saved_replies",
         "catalog.view_variant",
         "catalog.manage_links",
         "catalog.view_channel_stock",
         "catalog.view_quality",
+        "catalog.view_listing_health",
         "sales.view_salesdocument",
         "sales.change_order_status",
         "sales.cancel_manual_order",
@@ -61,7 +69,15 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "sales.receive_return",
         "fulfillment.view_pickbatch",
     ],
-    VENDEDOR: ["alerts.view_alert", "catalog.view_variant", "sales.view_salesdocument"],
+    VENDEDOR: [
+        "alerts.view_alert",
+        "catalog.view_variant",
+        "sales.view_salesdocument",
+        "conversations.view_question",
+        "conversations.answer_question",
+        "conversations.view_message",
+        "conversations.send_message",
+    ],
 }
 
 ROLE_NAMES = list(ROLE_PERMISSIONS)
@@ -78,14 +94,18 @@ PERMISSION_LABELS: dict[str, str] = {
     "integrations.toggle_write_switch": "Encender o apagar la escritura de stock/precio a un canal",
     "core.change_source_of_truth": "Cambiar la fuente de verdad de un dato",
     "integrations.manage_connection": "Conectar o reconectar un canal de venta",
+    "conversations.view_question": "Ver las preguntas de Mercado Libre",
     "conversations.answer_question": "Responder preguntas de Mercado Libre",
+    "conversations.view_message": "Ver los mensajes postventa de Mercado Libre",
     "conversations.send_message": "Enviar mensajes postventa",
     "conversations.view_claim": "Ver reclamos y devoluciones",
+    "conversations.manage_saved_replies": "Crear y editar respuestas guardadas",
     "catalog.view_variant": "Ver el catálogo",
     "catalog.manage_links": "Vincular publicaciones y códigos con SKU",
     "catalog.import_contabilium": "Importar el archivo de productos de Contabilium",
     "catalog.view_channel_stock": "Ver stock y precio por canal",
     "catalog.view_quality": "Ver el panel de calidad de datos",
+    "catalog.view_listing_health": "Ver la salud de las publicaciones de Mercado Libre",
     "sales.view_salesdocument": "Ver pedidos",
     "sales.change_order_status": "Cambiar el estado de los pedidos",
     "sales.cancel_manual_order": "Cancelar pedidos manuales",
@@ -116,7 +136,8 @@ def sync_roles(using="default"):
 
 
 def sync_roles_signal(sender, using="default", **kwargs):
-    # La señal llega una vez por app; sincronizamos al final (última app propia).
-    if getattr(sender, "label", None) != "integrations":
+    # La señal llega una vez por app; sincronizamos al final (última app propia de INSTALLED_APPS,
+    # así ya existen los permisos de todas las apps, incluidas las de conversations).
+    if getattr(sender, "label", None) != "conversations":
         return
     sync_roles(using=using)

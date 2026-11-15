@@ -38,6 +38,7 @@ ACTIONS: dict[str, str] = {
     "ml.question_answered": "Respuesta a pregunta de ML",
     "ml.message_sent": "Mensaje enviado en ML",
     "ml.listing_edited": "Publicación editada",
+    "ml.saved_reply_changed": "Respuesta guardada creada o editada",
     # M8 · mayorista
     "client.approved": "Cliente mayorista aprobado",
     "client.rejected": "Cliente mayorista rechazado",

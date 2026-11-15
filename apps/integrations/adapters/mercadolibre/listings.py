@@ -38,6 +38,27 @@ def _pictures(item: dict) -> dict[str, str]:
 def upsert_item(item: dict) -> Listing:
     channel = Channel.objects.get(code=CHANNEL)
     shipping = item.get("shipping") or {}
+    size_grid_id = attr_value(item.get("attributes"), "SIZE_GRID_ID")
+    data = {
+        "attributes": item.get("attributes") or [],
+        "pictures": [p.get("secure_url") for p in item.get("pictures") or []],
+        "family_name": item.get("family_name"),
+        "shipping": shipping,
+        "last_updated": item.get("last_updated"),
+        # Salud de la publicación (M6): motivos de pausa, etiquetas de calidad/moderación y guía de talles.
+        "sub_status": item.get("sub_status") or [],
+        "tags": item.get("tags") or [],
+        "warnings": item.get("warnings") or [],
+        "size_grid_id": size_grid_id,
+    }
+    previous = (
+        Listing.objects.filter(channel=channel, external_id=str(item["id"]))
+        .values_list("data", flat=True)
+        .first()
+    )
+    chart = (previous or {}).get("size_chart")
+    if chart and size_grid_id and chart.get("grid_id") == size_grid_id:
+        data["size_chart"] = chart  # la guía de talles cacheada sobrevive a la sincronización
     listing, _ = Listing.objects.update_or_create(
         channel=channel,
         external_id=str(item["id"]),
@@ -54,13 +75,7 @@ def upsert_item(item: dict) -> Listing:
             "sold_quantity": item.get("sold_quantity"),
             "health": dec(item.get("health")),
             "user_product_id": item.get("user_product_id") or "",
-            "data": {
-                "attributes": item.get("attributes") or [],
-                "pictures": [p.get("secure_url") for p in item.get("pictures") or []],
-                "family_name": item.get("family_name"),
-                "shipping": shipping,
-                "last_updated": item.get("last_updated"),
-            },
+            "data": data,
             "last_synced_at": timezone.now(),
         },
     )

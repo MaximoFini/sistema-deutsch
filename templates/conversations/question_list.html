@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load ml %}
+{% block title %}Preguntas · Mercado Libre{% endblock %}
+{% block content %}
+<div class="mb-2 flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <h1 class="text-xl font-semibold">Preguntas de Mercado Libre</h1>
+    <p class="text-sm text-stone-600">{{ paginator.count }} sin responder, de la más vieja a la más nueva. En rojo, las que llevan más de {{ warn_hours }} horas.</p>
+  </div>
+</div>
+{% include "conversations/_ml_tabs.html" with tab="unanswered" %}
+{% include "conversations/_disconnected.html" %}
+<div class="grid gap-3">
+  {% for q in questions %}
+  <a href="{% url 'ml:question_detail' q.pk %}" class="flex gap-3 rounded-lg border bg-white p-3 hover:border-stone-400 {% if q.asked_at and q.asked_at < warn_before %}border-red-300{% else %}border-stone-200{% endif %}">
+    {% with pics=q.listing.data.pictures %}{% if pics %}<img src="{{ pics.0 }}" alt="" class="h-16 w-16 flex-none rounded object-cover" loading="lazy">{% else %}<div class="h-16 w-16 flex-none rounded bg-stone-100"></div>{% endif %}{% endwith %}
+    <div class="min-w-0 flex-1">
+      <p class="font-medium">{{ q.text|truncatechars:160 }}</p>
+      <p class="mt-1 truncate text-xs text-stone-500">{{ q.listing.title|default:q.item_external_id }}</p>
+      <p class="mt-1 text-xs {% if q.asked_at and q.asked_at < warn_before %}font-semibold text-red-700{% else %}text-stone-600{% endif %}">{{ q.asked_at|ago }}{% if q.asker_nickname %} · {{ q.asker_nickname }}{% endif %}{% if q.status == "error" %} · <span class="text-red-700">no se pudo enviar la respuesta</span>{% elif q.draft_answer %} · <span class="text-amber-700">tiene un borrador</span>{% endif %}</p>
+    </div>
+  </a>
+  {% empty %}
+  <p class="rounded-lg border border-stone-200 bg-white p-6 text-center text-sm text-stone-500">No hay preguntas sin responder.</p>
+  {% endfor %}
+</div>
+{% include "_pagination.html" with noun="preguntas" %}
+{% endblock %}

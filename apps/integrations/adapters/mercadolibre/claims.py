@@ -80,7 +80,7 @@ def upsert_claim(client, c: dict) -> Claim:
             body=f"Motivo: {reason or 'sin detalle'}. Responder antes de {due:%d/%m %H:%M}."
             if due
             else f"Motivo: {reason or 'sin detalle'}.",
-            link_url="/integraciones/",
+            link_url=f"/ml/reclamos/{claim.pk}/",
             dedupe_key=f"claim:{claim.external_id}",
         )
     return claim

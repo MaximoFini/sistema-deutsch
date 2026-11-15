@@ -1,0 +1,5 @@
+{% if form.non_field_errors %}<p class="text-red-700">{{ form.non_field_errors|join:" " }}</p>{% endif %}
+<label class="block"><span class="text-stone-600">Título (por ejemplo, «Talles» o «Envíos»)</span>{{ form.title }}</label>
+{% if form.title.errors %}<p class="text-xs text-red-700">{{ form.title.errors|join:" " }}</p>{% endif %}
+<label class="block"><span class="text-stone-600">Texto</span>{{ form.text }}</label>
+{% if form.text.errors %}<p class="text-xs text-red-700">{{ form.text.errors|join:" " }}</p>{% endif %}

@@ -114,11 +114,15 @@ class OrderDetailView(PanelPermissionRequiredMixin, DetailView):
         from django.contrib.contenttypes.models import ContentType
 
         ct = ContentType.objects.get_for_model(SalesDocument)
+        messages_list = list(doc.messages.order_by("sent_at")[:50])
+        thread_key = next((m.thread_key for m in reversed(messages_list) if m.thread_key), "")
         ctx.update(
+            messages_list=messages_list,
+            thread_key=thread_key,
+            thread_unread=sum(1 for m in messages_list if m.direction == "in" and m.read_at is None),
             lines=doc.lines.select_related("variant"),
             payments=doc.payments.all(),
             shipments=doc.shipments.all(),
-            messages_list=doc.messages.order_by("sent_at")[:50],
             claims=doc.claims.all(),
             returns=doc.related_documents.filter(doc_type=SalesDocument.DocType.RETURN).select_related(
                 "return_info"

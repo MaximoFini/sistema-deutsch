@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load ml orders %}
+{% block title %}Reclamo {{ claim.external_id }} · Mercado Libre{% endblock %}
+{% block content %}
+<a href="{% url 'ml:claims' %}" class="text-sm underline">← Reclamos</a>
+<div class="mt-2 flex flex-wrap items-center gap-3">
+  <h1 class="text-xl font-semibold">{{ claim.claim_type|claim_type|default:"Reclamo" }} {{ claim.external_id }}</h1>
+  <span class="rounded bg-stone-200 px-2 py-0.5 text-sm">{{ claim.status|claim_status }}</span>
+  {% if claim.action_required %}<span class="rounded bg-red-100 px-2 py-0.5 text-sm font-medium text-red-800">Requiere tu respuesta</span>{% endif %}
+</div>
+<div class="mt-4 grid gap-4 lg:grid-cols-2">
+  <section class="rounded-lg border border-stone-200 bg-white p-4 text-sm">
+    <h2 class="mb-2 font-semibold">Datos del reclamo</h2>
+    <dl class="grid grid-cols-3 gap-x-3 gap-y-1">
+      <dt class="text-stone-500">Motivo</dt><dd class="col-span-2">{{ claim.reason|claim_reason|default:"—" }}{% if claim.reason_detail %}<br><span class="text-stone-600">{{ claim.reason_detail }}</span>{% endif %}</dd>
+      <dt class="text-stone-500">Etapa</dt><dd class="col-span-2">{{ claim.stage|claim_stage|default:"—" }}</dd>
+      <dt class="text-stone-500">Plazo</dt><dd class="col-span-2 {% if claim.status == 'opened' and claim.due_date and claim.due_date < soon %}font-semibold text-red-700{% endif %}">{% if claim.status == 'opened' %}{{ claim.due_date|remaining }}{% endif %}{% if claim.due_date %} ({{ claim.due_date|date:"d/m/Y H:i" }}){% endif %}</dd>
+      <dt class="text-stone-500">Abierto</dt><dd class="col-span-2">{{ claim.created_at|date:"d/m/Y H:i" }}</dd>
+      {% if resolution %}<dt class="text-stone-500">Resolución</dt><dd class="col-span-2">{{ resolution.reason|default:resolution }}{% if resolution.benefited %} · a favor de: {{ resolution.benefited|join:", " }}{% endif %}</dd>{% endif %}
+    </dl>
+    <a href="{{ ml_url }}" target="_blank" rel="noopener" class="mt-4 inline-flex min-h-[48px] items-center rounded bg-stone-900 px-5 py-3 font-medium text-white">Responder en Mercado Libre ↗</a>
+    <p class="mt-2 text-xs text-stone-500">El reclamo se responde en Mercado Libre. El sistema lo muestra, lo ordena y avisa antes de que venza.</p>
+  </section>
+  <section class="rounded-lg border border-stone-200 bg-white p-4 text-sm">
+    <h2 class="mb-2 font-semibold">Pedido</h2>
+    {% with d=claim.document %}{% if d %}
+      <p>{% if perms.sales.view_salesdocument %}<a href="{% url 'sales:detail' d.pk %}" class="underline">{{ d.channel_reference|default:d }}</a>{% else %}{{ d.channel_reference|default:d }}{% endif %} <span class="rounded px-2 py-0.5 text-xs font-medium {{ d.status|status_classes }}">{{ d.status|status_label }}</span></p>
+      <p class="text-stone-600">Comprador: {{ d.customer|default:"sin datos" }}</p>
+    {% else %}<p class="text-stone-500">Venta {{ claim.order_external_id|default:"—" }}: el pedido no está en el sistema.</p>{% endif %}{% endwith %}
+    <h2 class="mb-2 mt-4 font-semibold">Devolución</h2>
+    {% if claim.return_status %}<p>Estado en Mercado Libre: {{ claim.return_status|return_status }}</p>{% elif "return" in related %}<p>Hay una devolución asociada.</p>{% else %}<p class="text-stone-500">Sin devolución.</p>{% endif %}
+    {% for r in returns %}<p class="mt-1">En el depósito: {% if r.received_at %}recibida el {{ r.received_at|date:"d/m" }}{% if r.adjusted_in_contabilium %} · ajustada en Contabilium{% endif %}{% else %}todavía no llegó{% if perms.sales.receive_return %} · <a class="underline" href="{% url 'sales:return_receive' r.document.pk %}">registrar recepción</a>{% endif %}{% endif %}</p>{% endfor %}
+  </section>
+</div>
+{% endblock %}

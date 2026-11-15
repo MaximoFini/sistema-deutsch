@@ -44,6 +44,7 @@ class Variant(TimeStampedModel):
             ("import_contabilium", "Puede importar el archivo de productos de Contabilium"),
             ("view_channel_stock", "Puede ver stock y precio por canal"),
             ("view_quality", "Puede ver el panel de calidad de datos"),
+            ("view_listing_health", "Puede ver la salud de las publicaciones de Mercado Libre"),
         ]
 
     def __str__(self) -> str:

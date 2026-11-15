@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Respuestas guardadas · Mercado Libre{% endblock %}
+{% block content %}
+<h1 class="mb-2 text-xl font-semibold">Respuestas guardadas</h1>
+<p class="mb-3 text-sm text-stone-600">Textos que todo el equipo puede insertar al responder una pregunta o un mensaje. Antes de enviar se pueden editar.</p>
+{% include "conversations/_ml_tabs.html" with tab="saved" %}
+<div class="grid gap-4 lg:grid-cols-3">
+  <section class="rounded-lg border border-stone-200 bg-white p-4 text-sm lg:col-span-2">
+    <ul class="divide-y divide-stone-100">
+      {% for r in replies %}
+      <li class="py-3 {% if not r.is_active %}opacity-60{% endif %}">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="font-medium">{{ r.title }}{% if not r.is_active %} <span class="rounded bg-stone-200 px-1.5 text-xs">dada de baja</span>{% endif %}</p>
+          <a href="{% url 'ml:saved_reply_edit' r.pk %}" class="underline">Editar</a>
+        </div>
+        <p class="mt-1 whitespace-pre-line text-stone-700">{{ r.text }}</p>
+      </li>
+      {% empty %}
+      <li class="py-6 text-center text-stone-500">Todavía no hay respuestas guardadas. Cargá la primera con el formulario.</li>
+      {% endfor %}
+    </ul>
+  </section>
+  <section class="rounded-lg border border-stone-200 bg-white p-4 text-sm">
+    <h2 class="mb-2 font-semibold">Nueva respuesta guardada</h2>
+    <form method="post" class="space-y-2">{% csrf_token %}
+      {% include "conversations/_saved_reply_fields.html" %}
+      <button class="min-h-[44px] w-full rounded bg-stone-900 px-4 py-2 font-medium text-white">Guardar</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

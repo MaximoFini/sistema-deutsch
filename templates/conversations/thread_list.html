@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load ml %}
+{% block title %}Mensajes · Mercado Libre{% endblock %}
+{% block content %}
+<h1 class="text-xl font-semibold">Mensajes postventa</h1>
+<p class="mb-3 text-sm text-stone-600">Una fila por venta. Primero las que tienen mensajes sin leer.</p>
+<div class="mb-4 flex flex-wrap gap-2 text-sm">
+  <a href="{% url 'ml:threads' %}" class="rounded-full border px-3 py-1.5 {% if not only_unread %}bg-stone-900 text-white{% endif %}">Todas</a>
+  <a href="?sin_leer=1" class="rounded-full border px-3 py-1.5 {% if only_unread %}bg-stone-900 text-white{% endif %}">Solo sin leer</a>
+</div>
+{% include "conversations/_disconnected.html" %}
+<div class="grid gap-2">
+  {% for t in threads %}
+  <a href="{% url 'ml:thread' t.thread_key %}" class="block rounded-lg border bg-white p-3 hover:border-stone-400 {% if t.unread %}border-sky-300{% else %}border-stone-200{% endif %}">
+    <div class="flex items-center justify-between gap-2">
+      <strong class="truncate">{% if t.document %}{{ t.document.customer|default:"Comprador sin datos" }}{% else %}Conversación {{ t.thread_key }}{% endif %}</strong>
+      {% if t.unread %}<span class="flex-none rounded-full bg-sky-600 px-2 text-xs text-white">{{ t.unread }} sin leer</span>{% endif %}
+    </div>
+    <p class="text-xs text-stone-500">{% if t.document %}{{ t.document.channel_reference|default:t.document }}{% else %}pedido no encontrado{% endif %} · {{ t.last_sent|date:"d/m H:i" }} ({{ t.last_sent|ago }})</p>
+    <p class="mt-1 truncate text-sm {% if t.unread %}font-medium{% else %}text-stone-600{% endif %}">{% if not t.last_from_buyer %}Vos: {% endif %}{{ t.last_text|default:"(adjunto)" }}</p>
+  </a>
+  {% empty %}
+  <p class="rounded-lg border border-stone-200 bg-white p-6 text-center text-sm text-stone-500">{% if only_unread %}No hay mensajes sin leer.{% else %}Todavía no hay conversaciones.{% endif %}</p>
+  {% endfor %}
+</div>
+{% include "_pagination.html" with noun="conversaciones" %}
+{% endblock %}

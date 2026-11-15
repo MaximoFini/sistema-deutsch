@@ -36,6 +36,13 @@ BUDGET = {
     "sales:dispatch": 12,  # medido: 9
     "sales:batches": 10,  # medido: 7
     "sales:batch_detail": 14,  # medido: 11 (tanda de 30 pedidos)
+    # M6 · operación de Mercado Libre
+    "ml:questions": 11,  # medido: 8 (200 preguntas)
+    "ml:question_detail": 14,  # medido: 11 (variaciones, stock y anteriores)
+    "ml:threads": 12,  # medido: 9 (100 conversaciones)
+    "ml:claims": 10,  # medido: 7
+    "ml:health": 10,  # medido: 7 (100 publicaciones con problemas)
+    "ml:counters": 11,  # medido: 8 (3 contadores)
 }
 
 
@@ -144,7 +151,76 @@ def _batch_with_orders(docs, size=30):
     return batch
 
 
+def _ml_volume(docs):
+    """Preguntas, conversaciones y reclamos de ML sobre el volumen (para medir las pantallas de M6)."""
+    from apps.conversations.models import Claim, Message, Question
+
+    ml = Channel.objects.get(code="mercadolibre")
+    now = timezone.now()
+    listings = list(Listing.objects.filter(channel=ml))
+    for i, listing in enumerate(listings):  # problemas de salud variados
+        listing.status = "paused" if i % 3 == 0 else "active"
+        listing.health = Decimal("0.5") if i % 2 else Decimal("0.9")
+        listing.data = {
+            "sub_status": ["out_of_stock"],
+            "tags": ["poor_quality_picture"],
+            "pictures": ["p.jpg"],
+        }
+    Listing.objects.bulk_update(listings, ["status", "health", "data"])
+    questions = Question.objects.bulk_create(
+        [
+            Question(
+                channel=ml,
+                external_id=f"q{i}",
+                listing=listings[i % len(listings)],
+                item_external_id=listings[i % len(listings)].external_id,
+                text=f"Pregunta {i}",
+                asked_at=now - timedelta(hours=i % 30),
+                status="unanswered" if i % 2 else "answered",
+                answer_text="" if i % 2 else "Respuesta",
+                answered_at=None if i % 2 else now,
+            )
+            for i in range(200)
+        ]
+    )
+    Message.objects.bulk_create(
+        [
+            Message(
+                channel=ml,
+                external_id=f"m{i}",
+                document=docs[i % 100],
+                thread_key=str(docs[i % 100].pk),
+                direction="in" if i % 3 else "out",
+                text=f"Mensaje {i}",
+                sent_at=now - timedelta(minutes=i),
+            )
+            for i in range(400)
+        ]
+    )
+    Claim.objects.bulk_create(
+        [
+            Claim(
+                channel=ml,
+                external_id=f"c{i}",
+                document=docs[i],
+                order_external_id=str(i),
+                status="opened" if i % 4 else "closed",
+                reason="PNR1",
+                action_required=bool(i % 2),
+                due_date=now + timedelta(hours=i),
+            )
+            for i in range(60)
+        ]
+    )
+    return next(q for q in questions if q.status == "unanswered")
+
+
 def _url(name, docs):
+    if name.startswith("ml:"):
+        question = _ml_volume(docs)
+        if name == "ml:question_detail":
+            return reverse(name, args=[question.pk])
+        return reverse(name)
     if name == "sales:detail":
         return reverse(name, args=[docs[0].pk])
     if name == "sales:batch_detail":

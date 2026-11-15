@@ -43,6 +43,7 @@ class Question(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(fields=["channel", "external_id"], name="unique_question_per_channel")
         ]
+        indexes = [models.Index(fields=["status", "asked_at"], name="question_status_asked")]
         permissions = [("answer_question", "Puede responder preguntas de los canales")]
 
     def __str__(self) -> str:
@@ -74,6 +75,14 @@ class Message(models.Model):
         ordering = ["sent_at", "id"]
         constraints = [
             models.UniqueConstraint(fields=["channel", "external_id"], name="unique_message_per_channel")
+        ]
+        indexes = [
+            models.Index(fields=["thread_key", "sent_at"], name="message_thread_sent"),
+            models.Index(
+                fields=["thread_key"],
+                name="message_unread_in",
+                condition=models.Q(direction="in", read_at__isnull=True),
+            ),
         ]
         permissions = [("send_message", "Puede enviar mensajes postventa")]
 
@@ -109,3 +118,21 @@ class Claim(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"Reclamo {self.external_id} ({self.status})"
+
+
+class SavedReply(TimeStampedModel):
+    """Respuesta guardada, compartida por todo el equipo (M6). Se inserta en la respuesta y se edita."""
+
+    title = models.CharField("título", max_length=80)
+    text = models.TextField("texto")
+    is_active = models.BooleanField("activa", default=True)  # baja lógica
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        verbose_name = "respuesta guardada"
+        verbose_name_plural = "respuestas guardadas"
+        ordering = ["title"]
+        permissions = [("manage_saved_replies", "Puede crear y editar respuestas guardadas")]
+
+    def __str__(self) -> str:
+        return self.title

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load orders audit_tags fulfillment %}
+{% load orders audit_tags fulfillment ml %}
 {% block title %}{{ doc.channel_reference|default:doc }} · Pedidos{% endblock %}
 {% block content %}
 <a href="{% url 'sales:list' %}" class="text-sm underline">← Pedidos</a>
@@ -95,7 +95,7 @@
 
   <section class="rounded-lg border border-stone-200 bg-white p-4 text-sm">
     <h2 class="mb-2 font-semibold">Reclamos y devoluciones</h2>
-    {% for c in claims %}<p>Reclamo {{ c.external_id }} · {{ c.status }} · {{ c.reason }}{% if c.due_date %} · responder antes de {{ c.due_date|date:"d/m H:i" }}{% endif %}{% if c.return_status %} · devolución: {{ c.return_status }}{% endif %}</p>{% endfor %}
+    {% for c in claims %}<p>{% if perms.conversations.view_claim %}<a href="{% url 'ml:claim_detail' c.pk %}" class="underline">Reclamo {{ c.external_id }}</a>{% else %}Reclamo {{ c.external_id }}{% endif %} · {{ c.status|claim_status }} · {{ c.reason|claim_reason }}{% if c.due_date %} · responder antes de {{ c.due_date|date:"d/m H:i" }}{% endif %}{% if c.return_status %} · devolución: {{ c.return_status }}{% endif %}</p>{% endfor %}
     {% for r in returns %}<p>Devolución: {% if r.return_info.received_at %}recibida {{ r.return_info.received_at|date:"d/m" }}{% if r.return_info.adjusted_in_contabilium %} · ajustada{% endif %}{% else %}<a class="underline" href="{% url 'sales:return_receive' r.pk %}">registrar recepción</a>{% endif %}</p>{% endfor %}
     {% if not claims and not returns %}<p class="text-stone-500">Sin reclamos ni devoluciones.</p>{% endif %}
     {% if perms.sales.receive_return %}
@@ -107,7 +107,10 @@
   </section>
 
   <section class="rounded-lg border border-stone-200 bg-white p-4 text-sm lg:col-span-2">
-    <h2 class="mb-2 font-semibold">Mensajes</h2>
+    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <h2 class="font-semibold">Mensajes</h2>
+      {% if thread_key and perms.conversations.view_message %}<a href="{% url 'ml:thread' thread_key %}" class="rounded border border-stone-300 px-3 py-1.5 text-sm">Ver conversación{% if thread_unread %} ({{ thread_unread }} sin leer){% endif %}</a>{% endif %}
+    </div>
     {% for m in messages_list %}<p class="{% if m.direction == 'out' %}text-right{% endif %}"><span class="text-xs text-stone-500">{{ m.sent_at|date:"d/m H:i" }} · {{ m.get_direction_display }}</span><br>{{ m.text }}</p>{% empty %}<p class="text-stone-500">Sin mensajes.</p>{% endfor %}
   </section>
 

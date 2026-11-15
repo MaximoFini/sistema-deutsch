@@ -1,0 +1,6 @@
+{# Grupo «Mercado Libre» del menú. Se dibuja sin números al cargar la página y el fragmento /ml/contadores/ lo reemplaza con los contadores cada 60 s. #}
+<span class="text-xs uppercase tracking-wide text-stone-400">Mercado Libre</span>
+{% if perms.conversations.view_question %}<a href="{% url 'ml:questions' %}" class="hover:underline">Preguntas{% if counts.questions %} <span class="rounded-full bg-red-600 px-1.5 text-xs text-white">{{ counts.questions }}</span>{% endif %}</a>{% endif %}
+{% if perms.conversations.view_message %}<a href="{% url 'ml:threads' %}" class="hover:underline">Mensajes{% if counts.threads %} <span class="rounded-full bg-red-600 px-1.5 text-xs text-white">{{ counts.threads }}</span>{% endif %}</a>{% endif %}
+{% if perms.conversations.view_claim %}<a href="{% url 'ml:claims' %}" class="hover:underline">Reclamos{% if counts.claims %} <span class="rounded-full bg-red-600 px-1.5 text-xs text-white">{{ counts.claims }}</span>{% endif %}</a>{% endif %}
+{% if perms.catalog.view_listing_health %}<a href="{% url 'ml:health' %}" class="hover:underline">Salud</a>{% endif %}
