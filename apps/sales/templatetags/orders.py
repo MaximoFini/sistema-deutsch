@@ -27,6 +27,14 @@ def status_classes(status: str) -> str:
 
 
 @register.filter
+def channel_color(code: str) -> str:
+    """El mismo color por canal que en los reportes (M7; M8 suma el violeta de la tienda mayorista)."""
+    from apps.reports.queries import color
+
+    return color(code)
+
+
+@register.filter
 def ship_label(method: str) -> str:
     return Shipment.Method(method).label if method in Shipment.Method.values else (method or "—")
 

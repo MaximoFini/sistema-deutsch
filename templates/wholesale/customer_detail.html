@@ -38,6 +38,12 @@
       {% if account.reviewed_at %}<p class="text-stone-600">Revisado por {{ account.reviewed_by|default:"—" }} el {{ account.reviewed_at|date:"d/m/Y H:i" }}.</p>{% endif %}
       {% if account.rejection_reason %}<p class="mt-1"><strong>Motivo del rechazo:</strong> {{ account.rejection_reason }}</p>{% endif %}
       {% if account.customer %}<p class="mt-1">Cliente vinculado: <strong>{{ account.customer }}</strong> (#{{ account.customer_id }})</p>{% endif %}
+      {% if account.status == "approved" and perms.wholesale.order_on_behalf %}
+      <form method="post" action="{% url 'store:acting' %}" class="mt-3">{% csrf_token %}
+        <input type="hidden" name="account" value="{{ account.pk }}">
+        <button class="w-full rounded bg-violet-700 px-3 py-2 text-white hover:bg-violet-800">Armar un pedido en su nombre</button>
+      </form>
+      {% endif %}
       {% if can_manage %}
       <div class="mt-3 space-y-3">
         {% if account.status == "pending" or account.status == "rejected" %}

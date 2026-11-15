@@ -5,7 +5,7 @@ from django.urls import include, path
 from apps.core.views import health
 from apps.integrations.adapters.tiendanube.urls import privacy_urlpatterns as tn_privacy_urlpatterns
 from apps.integrations.urls import webhook_urlpatterns
-from apps.wholesale.panel_urls import customer_urlpatterns, store_admin_urlpatterns
+from apps.wholesale.panel_urls import customer_urlpatterns, order_urlpatterns, store_admin_urlpatterns
 
 admin.site.site_header = "Sistema Deutsch · soporte técnico"
 
@@ -26,6 +26,7 @@ urlpatterns = [
     path("integraciones/", include("apps.integrations.urls")),
     path("clientes-mayoristas/", include((customer_urlpatterns, "wholesale_customers"))),
     path("tienda-mayorista/", include((store_admin_urlpatterns, "store_admin"))),
+    path("pedidos-mayoristas/", include((order_urlpatterns, "wholesale_orders"))),
     path(settings.WHOLESALE_PATH, include("apps.wholesale.urls")),  # la tienda (M8)
     path("", include("apps.core.urls")),
 ]

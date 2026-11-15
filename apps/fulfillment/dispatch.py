@@ -10,8 +10,8 @@ from dataclasses import dataclass, field
 from django.db import transaction
 from django.db.models import Prefetch
 
-from apps.sales import states
-from apps.sales.models import SalesDocument, Shipment
+from apps.sales import payments, states
+from apps.sales.models import Payment, SalesDocument, Shipment
 
 from .batches import order_ref
 
@@ -47,8 +47,35 @@ def target_for(doc: SalesDocument, action: str, shipments: list[Shipment]) -> st
     return states.READY_FOR_PICKUP if pickup else states.DISPATCHED
 
 
-def advance(document_ids, action: str, *, user, request=None, tracking: dict | None = None) -> Result:
-    """Avanza cada pedido por separado: uno que falla no frena a los demás."""
+def cash_due_ids(docs) -> set[int]:
+    """M8: pedidos mayoristas en efectivo que todavía no se cobraron (una consulta para toda la pantalla)."""
+    docs = [d for d in docs if not payments.is_paid(d, getattr(d, "paid_amount", None))]
+    if not docs:
+        return set()
+    return set(
+        Payment.objects.filter(
+            document__in=[d.pk for d in docs],
+            method=Payment.Method.CASH,
+            status=Payment.Status.PENDING,
+            external_reference="mayorista",
+        ).values_list("document_id", flat=True)
+    )
+
+
+def advance(
+    document_ids,
+    action: str,
+    *,
+    user,
+    request=None,
+    tracking: dict | None = None,
+    cash_collected: set[int] | None = None,
+) -> Result:
+    """Avanza cada pedido por separado: uno que falla no frena a los demás.
+
+    M8: un pedido mayorista en efectivo se entrega solo si se marca que se cobró (`cash_collected`).
+    """
+    cash_collected = cash_collected or set()
     if action not in ACTIONS:
         raise DispatchError("Acción desconocida.")
     origin = ACTIONS[action][0]
@@ -70,6 +97,12 @@ def advance(document_ids, action: str, *, user, request=None, tracking: dict | N
             result.stale += 1
             continue
         to = target_for(doc, action, shipments)
+        cash_due = action == ENTREGAR and doc.channel.code == "mayorista" and bool(cash_due_ids([doc]))
+        if cash_due and doc.pk not in cash_collected:
+            from apps.wholesale.catalog import format_money
+
+            result.failed.append((doc, f"falta cobrar {format_money(doc.total)} en efectivo: tildá «Cobré»"))
+            continue
         code = (
             (tracking.get(doc.pk) or tracking.get(str(doc.pk)) or "").strip()[:100]
             if action == DESPACHAR
@@ -77,6 +110,10 @@ def advance(document_ids, action: str, *, user, request=None, tracking: dict | N
         )
         try:
             with transaction.atomic():
+                if cash_due:
+                    from apps.wholesale.payments import mark_cash_collected
+
+                    mark_cash_collected(doc, user=user, request=request)
                 states.change_status(
                     doc, to, user=user, tracking_code=code, reason="Despacho", request=request
                 )

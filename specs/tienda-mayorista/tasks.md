@@ -1,6 +1,6 @@
 # Tasks: Tienda mayorista · etapa A (módulo M8a)
 
-**Status:** Approved (2026-11-15) · In progress
+**Status:** Done (2026-11-15) · etapa B (Contabilium, ARCA, subdominio) pendiente
 **Last updated:** 2026-11-15
 **Design:** [design.md](./design.md)
 
@@ -88,7 +88,7 @@ Ordenadas por dependencia. Cada tarea incluye sus tests. `§` = sección de desi
 
 ## Bloque D: Operación
 
-- [ ] **T9: Pagos, vencimiento y centro de pedidos**
+- [x] **T9: Pagos, vencimiento y centro de pedidos**
   Satisfies: US-5
   Depends on: T8, T5
   Notas:
@@ -100,7 +100,7 @@ Ordenadas por dependencia. Cada tarea incluye sus tests. `§` = sección de desi
   - Liberar la reserva al facturar o cancelar.
   - Filtros y colores del canal.
 
-- [ ] **T10: Pedidos en nombre de clientes**
+- [x] **T10: Pedidos en nombre de clientes**
   Satisfies: US-7
   Depends on: T8
   Notas:
@@ -108,7 +108,7 @@ Ordenadas por dependencia. Cada tarea incluye sus tests. `§` = sección de desi
   - Sin mínimo, `placed_by` y auditoría.
   - "Cargado por Deutsch" en el historial del cliente.
 
-- [ ] **T11: Mi cuenta**
+- [x] **T11: Mi cuenta**
   Satisfies: US-6
   Depends on: T9
   Notas:
@@ -118,7 +118,7 @@ Ordenadas por dependencia. Cada tarea incluye sus tests. `§` = sección de desi
   - Pedir cambio de datos.
   - Emails de despachado y listo para retirar vía señal.
 
-- [ ] **T12: Faltantes**
+- [x] **T12: Faltantes**
   Satisfies: US-8
   Depends on: T9
   Notas:
@@ -126,7 +126,7 @@ Ordenadas por dependencia. Cada tarea incluye sus tests. `§` = sección de desi
   - Resolución por línea con ajuste de reserva, saldo o reintegro, y corrección en Contabilium.
   - Estados vía `change_status`; email y alerta.
 
-- [ ] **T13: Reportes mayoristas**
+- [x] **T13: Reportes mayoristas**
   Satisfies: US-9
   Depends on: T9
   Notas:
@@ -135,7 +135,7 @@ Ordenadas por dependencia. Cada tarea incluye sus tests. `§` = sección de desi
 
 ## Bloque E: Cierre
 
-- [ ] **T14: Spike de Contabilium, revisión y cierre**
+- [x] **T14: Spike de Contabilium, revisión y cierre**
   Depends on: T1–T13
   Notas:
   - `docs/spikes/contabilium-ecommerce.md`.

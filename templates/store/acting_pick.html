@@ -1,0 +1,42 @@
+{% extends "store/base.html" %}
+{% block title %}Pedido en nombre de un cliente{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl">
+  <h1 class="text-2xl font-bold sm:text-3xl">Pedido en nombre de un cliente</h1>
+  <p class="mt-1 text-brand-gray-600">Elegí el cliente y comprá en la tienda como si fueras él. Sin mínimo de compra y con los medios de pago que tenga habilitados. El cliente ve el pedido como «Cargado por Deutsch».</p>
+
+  {% if current %}
+  <div class="st-alert st-alert-info mt-4">
+    <p>Estás armando un pedido para «<strong>{{ current.display_name }}</strong>».</p>
+    <div class="mt-2 flex flex-wrap gap-2">
+      {% url "store:home" as home_url %}{% include "store/components/button.html" with label="Seguir con ese pedido" href=home_url variant="secondary" %}
+      <form method="post" action="{% url 'store:acting_stop' %}">{% csrf_token %}<button type="submit" class="st-btn st-btn-ghost">Terminar</button></form>
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="get" class="mt-5 flex gap-2" role="search">
+    <label for="acting-q" class="sr-only">Buscar cliente</label>
+    <input id="acting-q" type="search" name="q" value="{{ q }}" placeholder="Razón social, nombre de fantasía, CUIT o email" class="st-input flex-1" autofocus>
+    <button class="st-btn st-btn-primary">Buscar</button>
+  </form>
+
+  <ul class="st-card mt-4 divide-y divide-brand-gray-200">
+    {% for a in results %}
+    <li class="flex flex-wrap items-center gap-3 p-4">
+      <div class="min-w-0 flex-1">
+        <p class="font-semibold">{{ a.customer }}</p>
+        <p class="text-sm text-brand-gray-600">CUIT {{ a.cuit }} · {{ a.user.email }}{% if a.credit_enabled %} · cuenta corriente{% endif %}</p>
+      </div>
+      <form method="post">{% csrf_token %}
+        <input type="hidden" name="account" value="{{ a.pk }}">
+        <button type="submit" class="st-btn st-btn-primary" data-busy="Abriendo…">Comprar para este cliente</button>
+      </form>
+    </li>
+    {% empty %}
+    <li class="p-4 text-brand-gray-600">{% if q %}No encontramos clientes aprobados con «{{ q }}».{% else %}Todavía no hay clientes aprobados.{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% url "wholesale_customers:list" as panel_url %}{% if panel_url and perms.wholesale.view_customeraccount %}<p class="mt-4 text-sm"><a href="{{ panel_url }}" class="st-link">Volver al panel de clientes mayoristas</a></p>{% endif %}
+</div>
+{% endblock %}

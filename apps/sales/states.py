@@ -85,6 +85,11 @@ def is_manual(doc: SalesDocument) -> bool:
     return doc.channel.code == "manual"
 
 
+def cancellable_here(doc: SalesDocument) -> bool:
+    """Pedidos que se cancelan desde el sistema (no en el canal): manuales y mayoristas (M8)."""
+    return doc.channel.code in ("manual", "mayorista")
+
+
 def allowed_transitions(doc: SalesDocument, user=None) -> list[str]:
     """Destinos que la UI ofrece a este usuario (solo pedidos)."""
     if doc.doc_type != SalesDocument.DocType.ORDER:
@@ -96,8 +101,15 @@ def allowed_transitions(doc: SalesDocument, user=None) -> list[str]:
         targets = {doc.status_before_claim}
     pickup = is_pickup(doc)
     targets.discard(DISPATCHED if pickup else READY_FOR_PICKUP)
+    if doc.channel.code == "mayorista":
+        # M8: el pago se confirma desde «Pago por transferencia» y el faltante se resuelve ajustando el
+        # pedido; no se saltean con un cambio de estado suelto.
+        if doc.status == AWAITING_PAYMENT:
+            targets.discard(NEW)
+        if doc.status == AWAITING_CUSTOMER and doc.shortages.filter(resolved_at__isnull=True).exists():
+            targets &= {CANCELLED}
     if CANCELLED in targets and (
-        not is_manual(doc) or (user is not None and not user.has_perm("sales.cancel_manual_order"))
+        not cancellable_here(doc) or (user is not None and not user.has_perm("sales.cancel_manual_order"))
     ):
         targets.discard(CANCELLED)
     order = list(LABELS)
@@ -127,7 +139,7 @@ def change_status(
             if user is None or not user.has_perm("sales.change_order_status"):
                 raise TransitionNotAllowed("No tenés permiso para cambiar el estado de los pedidos.")
             if to not in allowed_transitions(doc, user):
-                if to == CANCELLED and not is_manual(doc):
+                if to == CANCELLED and not cancellable_here(doc):
                     raise TransitionNotAllowed(
                         f"Los pedidos de {doc.channel.name} se cancelan en el canal; el sistema lo refleja solo."
                     )
@@ -148,7 +160,7 @@ def change_status(
             ]
         )
         audit.record(
-            None if system else user,
+            user,  # con system=True puede venir el usuario de una acción propia (p. ej. confirmar un pago)
             "order.status_changed",
             doc,
             request=request,

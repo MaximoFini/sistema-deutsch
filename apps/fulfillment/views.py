@@ -364,6 +364,7 @@ class DispatchView(PanelPermissionRequiredMixin, View):
             .filter(document__in=[o.pk for o in orders])
             .values_list("document_id", "batch__number")
         )
+        cash_due = dispatch.cash_due_ids([o for o in orders if o.channel.code == "mayorista"])
         groups = []
         for status, title, action, button in GROUPS:
             rows = []
@@ -378,6 +379,7 @@ class DispatchView(PanelPermissionRequiredMixin, View):
                         "kind": labels.label_kind(shipment),
                         "pickup": any(s.method == Shipment.Method.PICKUP for s in o.shipments.all()),
                         "batch": batch_of.get(o.pk),
+                        "cash_due": o.pk in cash_due,  # M8: cobrar en efectivo al entregar
                     }
                 )
             groups.append(
@@ -397,6 +399,10 @@ class DispatchView(PanelPermissionRequiredMixin, View):
         if action == "etiquetas":
             return self._labels(request, ids)
         tracking = {}
+        cash = set()
+        for raw in request.POST.getlist("cash"):
+            if raw.isdigit():
+                cash.add(int(raw))
         for key, value in request.POST.items():
             if key.startswith("tracking_") and value.strip():
                 try:
@@ -404,7 +410,9 @@ class DispatchView(PanelPermissionRequiredMixin, View):
                 except ValueError:
                     continue
         try:
-            result = dispatch.advance(ids, action, user=request.user, request=request, tracking=tracking)
+            result = dispatch.advance(
+                ids, action, user=request.user, request=request, tracking=tracking, cash_collected=cash
+            )
         except dispatch.DispatchError as exc:
             messages.error(request, str(exc))
             return redirect("sales:dispatch")

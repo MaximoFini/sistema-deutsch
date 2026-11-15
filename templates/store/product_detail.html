@@ -6,10 +6,12 @@
 <div class="grid gap-6 lg:grid-cols-5">
   <section class="lg:col-span-2">
     {% if images %}
-      <img src="{{ images.0.url }}" alt="{{ images.0.alt|default:product.name }}" class="st-card aspect-square w-full object-cover" width="600" height="600">
+      {# Si una foto no carga, se ve «Sin foto» (la principal) o se oculta (las miniaturas), nunca el texto alternativo. #}
+      <img src="{{ images.0.url }}" alt="{{ images.0.alt|default:product.name }}" class="st-card aspect-square w-full object-cover" width="600" height="600" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+      <div class="st-card flex h-32 items-center justify-center text-brand-gray-600 lg:aspect-square lg:h-auto" hidden>Sin foto</div>
       {% if images|length > 1 %}
       <div class="mt-2 flex gap-2 overflow-x-auto pb-1">
-        {% for img in images|slice:"1:" %}<img src="{{ img.url }}" alt="{{ img.alt|default:product.name }}" loading="lazy" class="h-20 w-20 shrink-0 rounded-lg border border-brand-gray-200 object-cover" width="80" height="80">{% endfor %}
+        {% for img in images|slice:"1:" %}<img src="{{ img.url }}" alt="{{ img.alt|default:product.name }}" loading="lazy" class="h-20 w-20 shrink-0 rounded-lg border border-brand-gray-200 object-cover" width="80" height="80" onerror="this.remove()">{% endfor %}
       </div>
       {% endif %}
     {% else %}

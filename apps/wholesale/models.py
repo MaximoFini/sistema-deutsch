@@ -108,6 +108,11 @@ class Cart(TimeStampedModel):
     """Uno por cliente. Lo comparte quien compra «en nombre de» ese cliente."""
 
     customer = models.OneToOneField("customers.Customer", on_delete=models.CASCADE, related_name="cart")
+    # Quién lo está editando «en nombre de» el cliente (para avisarle al cliente que lo comparte).
+    acting_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    acting_since = models.DateTimeField("editado por Deutsch desde", null=True, blank=True)
 
     class Meta:
         verbose_name = "carrito"
@@ -160,6 +165,8 @@ class WholesaleOrder(models.Model):
     balance_applied = money_field("saldo a favor usado")
     needs_contabilium_correction = models.BooleanField("corregir en Contabilium", default=False)
     reservation_released_at = models.DateTimeField("reserva liberada", null=True, blank=True)
+    balance_returned_at = models.DateTimeField("saldo a favor devuelto", null=True, blank=True)
+    expired_at = models.DateTimeField("vencido sin pago", null=True, blank=True)  # lo canceló el vencimiento
 
     class Meta:
         verbose_name = "pedido mayorista"
@@ -170,7 +177,12 @@ class Shortage(TimeStampedModel):
     """Faltante marcado por Depósito en una línea de un pedido mayorista."""
 
     document = models.ForeignKey("sales.SalesDocument", on_delete=models.PROTECT, related_name="shortages")
-    line = models.ForeignKey("sales.SalesLine", on_delete=models.PROTECT, related_name="+")
+    # Si al resolver se quita la línea, el vínculo queda vacío (el detalle queda en `sku`, `description`).
+    line = models.ForeignKey(
+        "sales.SalesLine", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    sku = models.CharField("SKU", max_length=64, blank=True)
+    description = models.CharField("descripción", max_length=300, blank=True)
     missing_quantity = models.PositiveIntegerField("cantidad que falta")
     reported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
     resolved_at = models.DateTimeField("resuelto", null=True, blank=True)

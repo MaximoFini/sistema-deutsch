@@ -25,6 +25,7 @@ CHANNELS = {
     "tiendanube": "Tiendanube",
     "mercadolibre": "Mercado Libre",
     "manual": "Manual",
+    "mayorista": "Mayorista",
 }
 
 

@@ -2,7 +2,7 @@
 
 from django.urls import path
 
-from . import views
+from . import account_views, views
 
 app_name = "store"
 urlpatterns = [
@@ -29,4 +29,18 @@ urlpatterns = [
     path("carrito/actualizar/", views.CartUpdateView.as_view(), name="cart_update"),
     path("confirmar/", views.CheckoutView.as_view(), name="checkout"),
     path("pedidos/<int:number>/confirmado/", views.OrderDoneView.as_view(), name="order_done"),
+    path("mi-cuenta/", account_views.AccountView.as_view(), name="account"),
+    path("mi-cuenta/cambio/", account_views.ChangeRequestView.as_view(), name="change_request"),
+    path("pedidos/<int:number>/", account_views.StoreOrderDetailView.as_view(), name="order_detail"),
+    path(
+        "pedidos/<int:number>/comprobante/", account_views.ReceiptUploadView.as_view(), name="receipt_upload"
+    ),
+    path(
+        "pedidos/<int:number>/comprobantes/<int:receipt_id>/",
+        account_views.ReceiptDownloadView.as_view(),
+        name="receipt",
+    ),
+    path("pedidos/<int:number>/repetir/", account_views.RepeatOrderView.as_view(), name="repeat"),
+    path("en-nombre-de/", account_views.ActingPickView.as_view(), name="acting"),
+    path("en-nombre-de/terminar/", account_views.ActingStopView.as_view(), name="acting_stop"),
 ]

@@ -13,9 +13,10 @@ from django.views.generic import FormView, TemplateView
 
 from apps.accounts.mixins import PanelLoginRequiredMixin, is_store_customer
 from apps.catalog.models import Product
+from apps.sales import states
 from apps.sales.models import SalesDocument
 
-from . import accounts, catalog, checkout
+from . import accounts, acting, catalog, checkout, payments
 from . import cart as cart_service
 from .access import StoreAccessMixin, StorePublicMixin
 from .forms import (
@@ -264,8 +265,14 @@ class CartView(StoreAccessMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        summary = cart_service.summarize(self.shopper.cart(), apply_min=not self.shopper.acting)
+        cart = self.shopper.cart()
+        summary = cart_service.summarize(cart, apply_min=not self.shopper.acting)
         ctx["summary"] = summary
+        # §13: el cliente y el vendedor «en nombre de» comparten el carrito; se les avisa a los dos.
+        if self.shopper.acting:
+            ctx["shared_notice"] = "Este carrito es el del cliente: él también lo ve y lo puede editar."
+        elif acting.shared_with_deutsch(cart):
+            ctx["shared_notice"] = "Este carrito también lo está editando Deutsch para armar tu pedido."
         return ctx
 
 
@@ -346,6 +353,7 @@ class CheckoutView(StoreAccessMixin, FormView):
             changes=self.changes,
             store=StoreSettings.load(),
             credit_enabled=self.shopper.account.credit_enabled,
+            bank_missing=payments.BANK_DETAILS_MISSING,
         )
         return ctx
 
@@ -393,6 +401,10 @@ class OrderDoneView(StoreAccessMixin, TemplateView):
             order=order,
             shipment=shipment,
             store=store,
+            bank_missing=payments.BANK_DETAILS_MISSING,
+            receipts=list(doc.receipts.all()),
+            awaiting_payment=doc.status == states.AWAITING_PAYMENT
+            and order.payment_method == WholesaleOrder.PaymentMethod.TRANSFER,
             lines=list(doc.lines.all()),
             next_steps=checkout.next_steps(
                 order.payment_method,

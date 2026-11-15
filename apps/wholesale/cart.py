@@ -203,3 +203,31 @@ def remove(cart: Cart, variant_id: int) -> None:
 
 def clear(cart: Cart) -> None:
     cart.items.all().delete()
+
+
+def repeat(cart: Cart, doc, ctx: catalog.Context | None = None) -> tuple[int, list[str]]:
+    """Suma al carrito las líneas de un pedido anterior, con el stock y los precios de hoy.
+
+    Devuelve (variantes cargadas, avisos de lo que se ajustó o no está).
+    """
+    ctx = ctx or catalog.Context.load()
+    wanted: dict[int, int] = {}
+    warnings = []
+    lines = list(doc.lines.all())
+    for line in lines:
+        if line.variant_id is None:
+            warnings.append(f"{line.description_snapshot} ya no está en el catálogo.")
+            continue
+        wanted[line.variant_id] = wanted.get(line.variant_id, 0) + int(line.quantity)
+    current = quantities_in_cart(cart)
+    sellable = set(catalog.sellable_variants(ctx).filter(pk__in=list(wanted)).values_list("pk", flat=True))
+    for variant_id in list(wanted):
+        if variant_id not in sellable:
+            line = next(item for item in lines if item.variant_id == variant_id)
+            warnings.append(f"{line.description_snapshot} ya no está a la venta.")
+            del wanted[variant_id]
+    totals = {vid: current.get(vid, 0) + qty for vid, qty in wanted.items()}
+    warnings += set_quantities(cart, totals, ctx)
+    in_cart = quantities_in_cart(cart)
+    added = sum(1 for vid in totals if vid in in_cart)
+    return added, warnings

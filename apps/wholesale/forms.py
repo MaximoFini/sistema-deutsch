@@ -256,3 +256,17 @@ class CheckoutForm(StoreFormMixin, forms.Form):
         if data.get("payment") == "cash" and data.get("delivery") != DELIVERY_PICKUP:
             self.add_error("payment", "El efectivo es solo para retirar en el local.")
         return data
+
+
+class ChangeRequestForm(StoreFormMixin, forms.Form):
+    text = forms.CharField(
+        label="¿Qué dato querés cambiar?",
+        max_length=1000,
+        widget=forms.Textarea(
+            attrs={"rows": 3, "placeholder": "Por ejemplo: nos mudamos a Av. San Martín 123, Rosario."}
+        ),
+    )
+
+
+class ReceiptForm(forms.Form):
+    file = forms.FileField(label="Comprobante (foto o PDF, hasta 10 MB)")

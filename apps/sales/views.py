@@ -91,7 +91,7 @@ class OrderListView(PanelPermissionRequiredMixin, ListView):
             querystring=query.urlencode(),
             f=self.request.GET,
             estados_sel=self.request.GET.getlist("estado"),
-            channels=Channel.objects.filter(code__in=["tiendanube", "mercadolibre", "manual"]),
+            channels=Channel.objects.filter(code__in=["tiendanube", "mercadolibre", "manual", "mayorista"]),
             status_choices=list(states.LABELS.items()),
             now=timezone.now(),
             soon=timezone.now() + timedelta(hours=2),
@@ -134,9 +134,16 @@ class OrderDetailView(PanelPermissionRequiredMixin, DetailView):
             status_label=states.label(doc.status),
             family=states.FAMILY.get(doc.status, "flow"),
             is_tn=doc.channel.code == "tiendanube",
-            is_manual=doc.channel.code == "manual",
-            can_edit_manual=doc.channel.code == "manual" and user.has_perm("sales.add_manual_order"),
-            payment_methods=manual.PAYMENT_METHODS.items(),
+            is_manual=manual.is_editable(doc),  # cobro y facturación a mano: manuales y mayoristas
+            can_edit_manual=manual.is_editable(doc) and user.has_perm("sales.add_manual_order"),
+            can_edit_payment=manual.is_editable(doc)
+            and user.has_perm("sales.add_manual_order")
+            and doc.status != states.AWAITING_PAYMENT,
+            payment_methods=(
+                {**manual.PAYMENT_METHODS, Payment.Method.CURRENT_ACCOUNT: "Cuenta corriente"}
+                if doc.channel.code == "mayorista"
+                else manual.PAYMENT_METHODS
+            ).items(),
             paid=payments.is_paid(doc),
             now=timezone.now(),
         )
@@ -269,7 +276,20 @@ class ManualOrderCreateView(PanelPermissionRequiredMixin, View):
                 user=request.user,
                 request=request,
             )
-        except (manual.ManualOrderError, manual.WholesaleNotAllowed) as exc:
+        except manual.WholesaleNotAllowed as exc:
+            # M8: los pedidos mayoristas se cargan en la tienda, «en nombre de» el cliente.
+            if request.user.has_perm("wholesale.order_on_behalf"):
+                from urllib.parse import urlencode
+
+                from django.urls import reverse
+
+                messages.info(request, f"{exc} Elegí el cliente y armá el pedido en la tienda.")
+                return redirect(
+                    f"{reverse('store:acting')}?{urlencode({'q': customer.tax_id or customer.legal_name})}"
+                )
+            messages.error(request, f"{exc} Pedíselo a un vendedor o a un administrador.")
+            return render(request, self.template, self.context(form=p), status=400)
+        except manual.ManualOrderError as exc:
             messages.error(request, str(exc))
             return render(request, self.template, self.context(form=p), status=400)
         messages.success(request, f"Pedido {doc.channel_reference} creado.")

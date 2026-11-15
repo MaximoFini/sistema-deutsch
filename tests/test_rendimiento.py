@@ -641,3 +641,91 @@ def test_store_catalog_1000_products_under_1s(db, admin_user, django_assert_max_
         assert response.status_code == 200
         assert best < time_limit(1.0), f"catálogo {params or '(todo)'}: {best:.2f} s"
     assert response.context["page_obj"].paginator.count > 0
+
+
+# ── M8a · Tienda mayorista, operación (T9–T13): pantallas nuevas con consultas acotadas ──
+
+# Medido con 30 pedidos mayoristas (3 líneas, comprobantes, saldos y faltantes resueltos). El presupuesto
+# no depende de la cantidad de pedidos.
+WHOLESALE_BUDGET = {
+    "store:account": 14,  # medido: 11
+    "store:order_detail": 14,  # medido: 11
+    "sales:detail": 24,  # medido: 21 (ficha de M4 + bloque mayorista: pedido, configuración, comprobantes, faltantes)
+    "reports:wholesale": 15,  # medido: 12 (6 consultas del reporte)
+    "reports:wholesale_excel": 15,  # medido: 12
+}
+
+
+@pytest.fixture
+def wholesale_volume(db, admin_user):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from apps.inventory.services import apply_sync_level, default_warehouse
+    from apps.wholesale import accounts as store_accounts
+    from apps.wholesale import cart as cart_service
+    from apps.wholesale import checkout, payments
+    from apps.wholesale.access import Shopper
+    from apps.wholesale.models import CartItem, CustomerBalance, StoreSettings
+
+    row = StoreSettings.load()
+    row.min_order_amount = Decimal("1")
+    row.save()
+    product = Product.objects.create(name="Malla volumen", categories=["Mallas"])
+    wholesale = PriceList.objects.get(code="MAYORISTA")
+    variants = []
+    for k in range(5):
+        v = Variant.objects.create(
+            product=product, sku=f"VOL-{k}", attributes={"Talle": str(k), "Color": "Azul"}
+        )
+        PriceListItem.objects.create(price_list=wholesale, variant=v, price=Decimal("1000"))
+        apply_sync_level(v, default_warehouse(), 10_000)
+        variants.append(v)
+    data = {
+        "cuit": "30712345671",
+        "legal_name": "Cliente Volumen SA",
+        "vat_condition": "RI",
+        "email": "vol@test.local",
+    }
+    account = store_accounts.register(data=data, password="Clave-de-volumen-2026")
+    store_accounts.approve(account, user=admin_user)
+    account.refresh_from_db()
+    shopper = Shopper(account=account, user=account.user)
+    docs = []
+    for i in range(30):
+        cart = shopper.cart()
+        for v in variants[:3]:
+            CartItem.objects.create(cart=cart, variant=v, quantity=1 + i % 3)
+        snapshot = checkout.sign_snapshot(cart_service.summarize(cart))
+        doc = checkout.place_order(
+            shopper, delivery=checkout.Delivery("pickup"), payment_method="transfer", snapshot=snapshot
+        )
+        payments.upload_receipt(doc, SimpleUploadedFile("c.pdf", b"%PDF-1.4 x"), user=account.user)
+        if i % 2:
+            payments.confirm_payment(doc, user=admin_user)
+        docs.append(doc)
+        CustomerBalance.objects.create(customer=account.customer, amount=Decimal("10"), note=f"Saldo {i}")
+    return account, docs
+
+
+def _wholesale_url(name, docs):
+    if name == "store:order_detail":
+        return reverse(name, args=[docs[0].number])
+    if name == "sales:detail":
+        return reverse(name, args=[docs[0].pk])
+    return reverse(name)
+
+
+@pytest.mark.parametrize("name", list(WHOLESALE_BUDGET))
+def test_wholesale_query_budget(wholesale_volume, admin_client, django_assert_max_num_queries, name):
+    from django.test import Client
+
+    account, docs = wholesale_volume
+    client = admin_client
+    if name.startswith("store:"):
+        client = Client()
+        client.force_login(account.user)
+    url = _wholesale_url(name, docs)
+    assert client.get(url).status_code == 200  # calienta sesión y permisos
+    with django_assert_max_num_queries(WHOLESALE_BUDGET[name]):
+        response = client.get(url)
+    assert response.status_code == 200

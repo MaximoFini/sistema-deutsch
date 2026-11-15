@@ -51,6 +51,13 @@ ACTIONS: dict[str, str] = {
     "wholesale.order_placed": "Pedido mayorista confirmado",
     "wholesale.settings_changed": "Configuración de la tienda mayorista cambiada",
     "wholesale.email_template_changed": "Texto de email a clientes editado",
+    "wholesale.receipt_uploaded": "Comprobante de pago subido",
+    "wholesale.shortage_reported": "Faltante marcado en un pedido mayorista",
+    "wholesale.shortage_resolved": "Pedido mayorista ajustado por faltante",
+    "wholesale.acting_started": "Pedido en nombre de un cliente: empezó",
+    "wholesale.acting_finished": "Pedido en nombre de un cliente: terminó",
+    "client.change_requested": "Cliente mayorista pidió cambiar sus datos",
+    "wholesale.order_repeated": "Cliente mayorista repitió un pedido",
 }
 
 

@@ -1,0 +1,30 @@
+{% extends "base.html" %}{% load fulfillment %}
+{% block title %}Marcar faltante · {{ doc.channel_reference }}{% endblock %}
+{% block content %}
+<a href="{{ next }}" class="text-sm underline">← Volver</a>
+<h1 class="mt-2 text-xl font-semibold">Marcar faltante · {{ doc.channel_reference }}</h1>
+<p class="text-sm text-stone-600">{{ doc.customer }}. Anotá cuántas unidades faltan de cada producto. El pedido pasa a «Esperando cliente», le mandamos un email al cliente con el detalle y avisamos a los administradores para que lo consulten.</p>
+<form method="post" class="mt-4 max-w-2xl space-y-3" id="shortage-form">{% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  {% for l in lines %}
+  <label class="flex min-h-[56px] items-center justify-between gap-3 rounded-lg border border-stone-200 bg-white p-3 text-sm">
+    <span class="min-w-0"><span class="font-mono text-xs">{{ l.sku_snapshot }}</span><span class="block">{{ l.description_snapshot }}</span><span class="block text-xs text-stone-500">Pedido: {{ l.quantity|qty }} u</span></span>
+    <span class="flex shrink-0 items-center gap-2">Faltan
+      <input type="number" name="missing_{{ l.pk }}" min="0" max="{{ l.quantity|qty }}" step="1" inputmode="numeric" placeholder="0" class="h-12 w-20 rounded border border-stone-300 px-2 text-center text-lg">
+    </span>
+  </label>
+  {% endfor %}
+  <button class="min-h-[48px] w-full rounded bg-amber-700 px-5 py-3 font-medium text-white disabled:opacity-60 sm:w-auto" data-busy="Guardando…">Marcar faltante y avisar al cliente</button>
+</form>
+<script>
+  (function () {
+    var form = document.getElementById("shortage-form"), sending = false;
+    form.addEventListener("submit", function (e) {
+      if (sending) { e.preventDefault(); return; }
+      sending = true;
+      var b = form.querySelector("button[data-busy]");
+      setTimeout(function () { b.disabled = true; b.textContent = b.dataset.busy; }, 0);
+    });
+  })();
+</script>
+{% endblock %}

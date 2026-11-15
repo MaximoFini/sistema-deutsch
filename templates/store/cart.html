@@ -2,7 +2,8 @@
 {% load store %}
 {% block title %}Carrito{% endblock %}
 {% block content %}
-<h1 class="mb-4 text-2xl font-bold sm:text-3xl">Tu carrito</h1>
+<h1 class="mb-4 text-2xl font-bold sm:text-3xl">{% if shopper.acting %}Carrito de {{ shopper.account.display_name }}{% else %}Tu carrito{% endif %}</h1>
+{% if shared_notice %}<div class="mb-4">{% include "store/components/alert.html" with kind="info" text=shared_notice %}</div>{% endif %}
 {% if not summary.lines %}
 <div class="st-card p-6 text-center">
   <p class="font-semibold">Tu carrito está vacío.</p>

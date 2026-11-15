@@ -47,12 +47,10 @@
         {% for error in form.payment.errors %}<span class="st-error">{{ error }}</span>{% endfor %}
       </div>
       <p class="st-help">El efectivo es solo para retirar en el local.{% if not credit_enabled %} La cuenta corriente la habilita Deutsch a pedido.{% endif %}</p>
-      {% if store.bank_details %}
       <div class="mt-3 rounded-lg bg-brand-water-50 p-3 text-sm" data-bank>
         <p class="font-semibold">Datos para transferir</p>
-        <p class="whitespace-pre-line">{{ store.bank_details }}</p>
+        {% if store.bank_details.strip %}<p class="whitespace-pre-line">{{ store.bank_details }}</p>{% else %}<p>{{ bank_missing }}</p>{% endif %}
       </div>
-      {% endif %}
     </fieldset></div>
 
     <div class="st-card p-5">{% include "store/components/field.html" with field=form.notes %}</div>
@@ -70,7 +68,7 @@
       <div class="flex justify-between border-t border-brand-gray-200 pt-2 text-lg font-bold"><dt>Total</dt><dd class="st-num">{{ summary.total|money }}</dd></div>
     </dl>
     <p class="st-help">El flete del expreso lo pagás vos al recibir.</p>
-    <div class="mt-4">{% include "store/components/button.html" with label="Confirmar el pedido" block=True %}</div>
+    <div class="mt-4"><button type="submit" class="st-btn st-btn-primary st-btn-block" data-busy="Confirmando…">Confirmar el pedido</button></div>
   </aside>
 </form>
 {% endblock %}

@@ -42,7 +42,7 @@
   <tbody>
   {% for o in orders %}
     <tr class="border-t border-stone-100">
-      <td class="px-3 py-2"><a href="{% url 'sales:detail' o.pk %}" class="font-medium underline">{{ o.channel_reference|default:o }}</a><div class="text-xs text-stone-500">{{ o.channel.name }}</div></td>
+      <td class="px-3 py-2"><a href="{% url 'sales:detail' o.pk %}" class="font-medium underline">{{ o.channel_reference|default:o }}</a><div class="flex items-center gap-1 text-xs text-stone-500"><span class="inline-block h-2 w-2 rounded-full" style="background: {{ o.channel.code|channel_color }}" aria-hidden="true"></span>{{ o.channel.name }}</div></td>
       <td class="whitespace-nowrap px-3 py-2">{{ o.issued_at|date:"d/m H:i" }}</td>
       <td class="px-3 py-2">{{ o.customer|default:"—" }}</td>
       <td class="px-3 py-2 font-mono text-xs">{{ o|lines_summary }}</td>
@@ -68,7 +68,7 @@
       <span class="rounded px-2 py-0.5 text-xs font-medium {{ o.status|status_classes }}">{{ o.status|status_label }}</span>
     </div>
     <p class="mt-1 text-sm">{{ o.customer|default:"—" }} · ${{ o.total|floatformat:"2g" }} · {% if o|is_paid %}cobrado{% else %}<span class="text-amber-700">pendiente</span>{% endif %}</p>
-    <p class="text-xs text-stone-500">{{ o.ship_method|ship_label }} · {{ o|lines_summary }}</p>
+    <p class="text-xs text-stone-500"><span class="inline-block h-2 w-2 rounded-full" style="background: {{ o.channel.code|channel_color }}" aria-hidden="true"></span> {{ o.channel.name }} · {{ o.ship_method|ship_label }} · {{ o|lines_summary }}</p>
     {% if o.deadline %}<p class="mt-1 text-xs {% if o.deadline <= soon and o.status in 'new preparing ready awaiting_customer' %}font-semibold text-red-700{% else %}text-stone-600{% endif %}">Despachar antes de {{ o.deadline|date:"d/m H:i" }}</p>{% endif %}
   </a>
   {% empty %}

@@ -3,6 +3,9 @@
 {% block content %}
 <h1 class="mb-3 text-xl font-semibold">Tienda mayorista</h1>
 {% include "wholesale/_tabs.html" with active="settings" %}
+{% if bank_missing %}
+<div class="mb-4 max-w-3xl rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"><strong>Faltan los datos bancarios de la tienda.</strong> Los clientes que eligen transferencia no ven dónde pagar: completá «Datos bancarios» (CBU, alias, titular y CUIT).</div>
+{% endif %}
 <form method="post" class="max-w-3xl space-y-4 rounded-lg border border-stone-200 bg-white p-4">{% csrf_token %}
   {% for field in form %}
   <div>

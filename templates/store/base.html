@@ -16,6 +16,10 @@
   <div class="st-banner sticky top-0 z-30">
     <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm">
       <span>Estás armando un pedido para «<strong>{{ shopper.account.display_name }}</strong>»</span>
+      <span class="flex items-center gap-3 sm:ml-auto">
+        <a href="{% url 'store:acting' %}" class="underline">Cambiar de cliente</a>
+        <form method="post" action="{% url 'store:acting_stop' %}">{% csrf_token %}<button class="font-semibold underline">Terminar</button></form>
+      </span>
     </div>
   </div>
   {% endif %}
@@ -31,6 +35,26 @@
     {% block content %}{% endblock %}
   </main>
   {% include "store/components/footer.html" %}
+  <script>
+    // Un solo envío por formulario: el botón se traba («Enviando…») para que el doble toque no repita la acción.
+    (function () {
+      document.querySelectorAll("form[method=post]:not([data-nolock])").forEach(function (form) {
+        var sending = false;
+        form.addEventListener("submit", function (e) {
+          if (sending) { e.preventDefault(); return; }
+          sending = true;
+          var button = e.submitter || form.querySelector("button:not([type=button])");
+          setTimeout(function () {
+            if (!button) return;
+            button.disabled = true;
+            button.setAttribute("aria-busy", "true");
+            if (button.dataset.busy) button.textContent = button.dataset.busy;
+          }, 0);
+        });
+      });
+      window.addEventListener("pageshow", function (e) { if (e.persisted) location.reload(); });
+    })();
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -14,6 +14,7 @@ TABS = [
     ("reports:sales", "Ventas"),
     ("reports:products", "Productos"),
     ("reports:operations", "Operación"),
+    ("reports:wholesale", "Mayorista"),
 ]
 SALES_COLUMNS = [
     ("unidades", "Unidades"),
@@ -426,5 +427,76 @@ class OperationsView(ReportView):
                 totals=["Total", "", "", "", d["manual"]["total"], "", ""],
                 money_columns={4},
                 note="Pedidos manuales sin cobrar o sin facturar a la fecha (no depende del período).",
+            ),
+        ]
+
+
+class WholesaleView(ReportView):
+    """M8a · US-9: ventas mayoristas por cliente y por quién cargó, pendientes y saldos a favor."""
+
+    template_name = "reports/wholesale.html"
+    tab = "reports:wholesale"
+    excel_name = "reporte-mayorista"
+
+    def note(self) -> str:
+        return f"Período: {self.f.label} · canal Mayorista. Neto = sin IVA; total = con IVA y menos saldo a favor usado."
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(data=queries.wholesale(self.f), **kwargs)
+
+    def sheets(self):
+        d = queries.wholesale(self.f)
+        sales_headers = ["Pedidos", "Neto sin IVA", "Total"]
+        pending_headers = ["Pedido", "Cliente", "Fecha", "Días", "Total", "Estado"]
+
+        def pending(rows):
+            return [[r["pedido"], r["cliente"], r["fecha"], r["dias"], r["total"], r["estado"]] for r in rows]
+
+        today_note = "A la fecha, sin importar el período."
+        ct = d["customers_total"]
+        return [
+            Sheet(
+                "Ventas por cliente",
+                ["Cliente", *sales_headers],
+                [[r["clave"], r["pedidos"], r["neto"], r["total"]] for r in d["customers"]],
+                totals=["Total", ct["pedidos"], ct["neto"], ct["total"]],
+                money_columns={2, 3},
+                note=self.note(),
+            ),
+            Sheet(
+                "Ventas por quién cargó",
+                ["Cargado por", *sales_headers],
+                [[r["clave"], r["pedidos"], r["neto"], r["total"]] for r in d["sellers"]],
+                money_columns={2, 3},
+                note=self.note(),
+            ),
+            Sheet(
+                "Esperando pago",
+                pending_headers,
+                pending(d["awaiting"]),
+                money_columns={4},
+                note=today_note,
+            ),
+            Sheet(
+                "Vencidos",
+                pending_headers,
+                pending(d["expired"]),
+                money_columns={4},
+                note=self.note() + " Transferencias canceladas al vencer el plazo de pago.",
+            ),
+            Sheet(
+                "Sin facturar",
+                pending_headers,
+                pending(d["not_invoiced"]),
+                money_columns={4},
+                note=today_note + " Pagados o en curso, sin «Facturado en Contabilium».",
+            ),
+            Sheet(
+                "Saldos a favor",
+                ["Cliente", "Saldo a favor"],
+                [[r["clave"], r["saldo"]] for r in d["balances"]],
+                totals=["Total", d["balances_total"]],
+                money_columns={1},
+                note="Saldos vigentes a la fecha.",
             ),
         ]

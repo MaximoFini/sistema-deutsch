@@ -341,3 +341,23 @@ def set_credit(account: CustomerAccount, *, enabled: bool, user, request=None) -
 
 def pending_count() -> int:
     return CustomerAccount.objects.filter(status=CustomerAccount.Status.PENDING).count()
+
+
+@transaction.atomic
+def request_change(account: CustomerAccount, *, text: str, user, request=None) -> None:
+    """El cliente pide cambiar sus datos (el CUIT no): alerta para los administradores."""
+    text = (text or "").strip()[:1000]
+    if not text:
+        raise AccountError("Contanos qué dato querés cambiar.")
+    audit.record(user, "client.change_requested", account, request=request, pedido=text)
+    display, account_id = account.display_name, account.pk
+    stamp = timezone.now().strftime("%Y%m%d%H%M%S")
+    transaction.on_commit(
+        lambda: alerts.emit(
+            "wholesale.data_change_requested",
+            title=f"{display} pidió cambiar sus datos",
+            body=text,
+            link_url=f"/clientes-mayoristas/{account_id}/",
+            dedupe_key=f"change:{account_id}:{stamp}",
+        )
+    )

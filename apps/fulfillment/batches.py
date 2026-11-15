@@ -23,7 +23,7 @@ from apps.sales.views import orders_queryset
 
 from .models import PickBatch, PickBatchOrder
 
-CHANNELS = ("tiendanube", "mercadolibre", "manual")
+CHANNELS = ("tiendanube", "mercadolibre", "manual", "mayorista")  # M8 suma la tienda mayorista
 # Todos los métodos menos Full (lo despacha Mercado Libre).
 PREPARABLE_METHODS = [m for m in Shipment.Method.values if m != Shipment.Method.ME_FULL]
 # Estados con los que un pedido sale de la tanda ("resuelto").
@@ -86,7 +86,7 @@ def active_items() -> QuerySet[PickBatchOrder]:
 
 
 def preparable_orders() -> QuerySet[SalesDocument]:
-    """Pedidos Nuevos de TN, ML (sin Full) y manuales que no están en una tanda activa."""
+    """Pedidos Nuevos de TN, ML (sin Full), manuales y mayoristas que no están en una tanda activa."""
     full = Shipment.objects.filter(document=OuterRef("pk"), method=Shipment.Method.ME_FULL)
     in_batch = active_items().filter(document=OuterRef("pk"))
     return (

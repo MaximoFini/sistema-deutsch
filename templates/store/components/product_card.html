@@ -1,7 +1,9 @@
 {% load store %}{# Tarjeta de producto del catálogo. Recibe `product` (con image, price_from, price_varies, has_available). #}
 <a href="{% url 'store:product' product.pk %}" class="st-card st-product-card group focus-visible:outline-3 focus-visible:outline-brand-blue">
   {% if product.image %}
-    <img src="{{ product.image.url }}" alt="{{ product.image.alt|default:product.name }}" loading="lazy" width="400" height="400" class="{% if not product.has_available %}opacity-60{% endif %}">
+    {# Si la foto no carga (CDN caído, enlace viejo), se ve el mismo «Sin foto» y no el texto alternativo. #}
+    <img src="{{ product.image.url }}" alt="{{ product.image.alt|default:product.name }}" loading="lazy" width="400" height="400" class="{% if not product.has_available %}opacity-60{% endif %}" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+    <div class="flex aspect-square items-center justify-center bg-brand-water-50 text-sm text-brand-gray-600" hidden>Sin foto</div>
   {% else %}
     <div class="flex aspect-square items-center justify-center bg-brand-water-50 text-sm text-brand-gray-600">Sin foto</div>
   {% endif %}

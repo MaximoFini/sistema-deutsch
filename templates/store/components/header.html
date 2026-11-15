@@ -15,6 +15,7 @@
       <a href="{% url 'store:cart' %}" class="st-btn st-btn-ghost px-2 sm:px-3" aria-label="Carrito, {{ cart_units }} unidades">
         Carrito{% if cart_units %} <span class="st-badge st-badge-info">{{ cart_units }}</span>{% endif %}
       </a>
+      {% if not shopper.acting %}<a href="{% url 'store:account' %}" class="st-btn st-btn-ghost px-2 sm:px-3">Mi cuenta</a>{% endif %}
       <form method="post" action="{% url 'store:logout' %}">{% csrf_token %}
         <button class="st-btn st-btn-ghost px-2 text-brand-gray-600 sm:px-3">Salir</button>
       </form>

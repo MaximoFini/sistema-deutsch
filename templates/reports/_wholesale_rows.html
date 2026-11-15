@@ -1,0 +1,12 @@
+{% load reports %}{% if rows %}
+<div class="overflow-x-auto">
+<table class="w-full min-w-[560px] text-sm">
+  <thead class="text-left text-stone-500"><tr><th class="py-1 pr-2">Pedido</th><th class="py-1 pr-2">Cliente</th><th class="py-1 pr-2">Fecha</th><th class="py-1 pr-2 text-right">Días</th>{% if show_due %}<th class="py-1 pr-2">Vence</th>{% endif %}<th class="py-1 text-right">Total</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr class="border-t border-stone-100"><td class="py-1 pr-2"><a class="underline" href="{% url 'sales:detail' r.document_id %}">{{ r.pedido }}</a></td><td class="py-1 pr-2">{{ r.cliente|truncatechars:40 }}</td><td class="py-1 pr-2">{{ r.fecha|date:"d/m/Y" }}</td><td class="py-1 pr-2 text-right">{{ r.dias }}</td>{% if show_due %}<td class="py-1 pr-2">{{ r.vence|date:"d/m H:i"|default:"—" }}</td>{% endif %}<td class="py-1 text-right">{{ r.total|money }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<p class="py-4 text-sm text-stone-500">{{ empty }}</p>{% endif %}

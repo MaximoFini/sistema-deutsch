@@ -2,6 +2,7 @@
 
 from django.urls import path
 
+from . import order_panel_views as order_views
 from . import panel_views as views
 
 customer_urlpatterns = [
@@ -15,4 +16,12 @@ store_admin_urlpatterns = [
     path("textos/", views.EmailTemplateListView.as_view(), name="email_templates"),
     path("textos/<slug:code>/", views.EmailTemplateEditView.as_view(), name="email_template_edit"),
     path("emails/", views.OutboundEmailListView.as_view(), name="outbound_emails"),
+]
+
+order_urlpatterns = [
+    path("<int:pk>/confirmar-pago/", order_views.ConfirmPaymentView.as_view(), name="confirm_payment"),
+    path("<int:pk>/comprobantes/<int:receipt_id>/", order_views.ReceiptView.as_view(), name="receipt"),
+    path("<int:pk>/cobrado/", order_views.CashCollectedView.as_view(), name="cash_collected"),
+    path("<int:pk>/faltante/", order_views.ShortageReportView.as_view(), name="shortage_report"),
+    path("<int:pk>/resolver-faltante/", order_views.ShortageResolveView.as_view(), name="shortage_resolve"),
 ]

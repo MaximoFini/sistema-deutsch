@@ -12,4 +12,6 @@ urlpatterns = [
     path("productos/excel/", views.ProductsView.as_view(excel=True), name="products_excel"),
     path("operacion/", views.OperationsView.as_view(), name="operations"),
     path("operacion/excel/", views.OperationsView.as_view(excel=True), name="operations_excel"),
+    path("mayorista/", views.WholesaleView.as_view(), name="wholesale"),
+    path("mayorista/excel/", views.WholesaleView.as_view(excel=True), name="wholesale_excel"),
 ]

@@ -36,11 +36,20 @@
         </label>
         <div class="mt-2 flex flex-wrap items-center gap-2 pl-10">
           <a href="{% url 'sales:detail' o.pk %}" class="text-xs underline">Ver pedido</a>
+          {% if g.status == "preparing" and o.channel.code == "mayorista" and perms.wholesale.report_shortage %}<a href="{% url 'wholesale_orders:shortage_report' o.pk %}?next={{ request.path|urlencode }}" class="text-xs font-medium text-amber-900 underline">Marcar faltante</a>{% endif %}
           {% if r.kind == "rotulo" %}<a href="{% url 'sales:carrier_label' o.pk %}?next={{ request.path|urlencode }}" class="text-xs underline">Rótulo</a>{% endif %}
           {% if r.kind == "envio_nube" %}<span class="text-xs text-stone-500">Etiqueta desde Tiendanube</span>{% endif %}
           {% if r.shipment.label_print_count %}<span class="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">Etiqueta impresa ({{ r.shipment.label_print_count }})</span>{% endif %}
           {% if not r.shipment.label_printed_at and r.kind == "ml" %}<span class="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Etiqueta sin imprimir</span>{% elif not r.shipment.label_printed_at and r.kind == "rotulo" %}<span class="rounded bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">Rótulo sin imprimir</span>{% endif %}
         </div>
+        {% if r.cash_due %}
+        <div class="mt-2 rounded bg-amber-50 px-2 py-2 pl-10 text-sm text-amber-900">
+          <p class="font-semibold">Cobrar ${{ o.total|floatformat:"2g" }} en efectivo</p>
+          {% if g.status == "ready_for_pickup" %}
+          <label class="mt-1 flex min-h-[44px] items-center gap-2"><input type="checkbox" name="cash" value="{{ o.pk }}" class="h-6 w-6 accent-stone-900"> Cobré ${{ o.total|floatformat:"2g" }} en efectivo</label>
+          {% endif %}
+        </div>
+        {% endif %}
         {% if g.status == "ready" and not r.pickup and r.kind != "ml" %}
         <label class="mt-2 block pl-10 text-xs text-stone-600">N.º de guía o seguimiento (opcional)
           <input name="tracking_{{ o.pk }}" value="{{ r.shipment.tracking_number }}" class="mt-1 min-h-[40px] w-full rounded border border-stone-300 px-2 py-1 text-sm text-stone-900">

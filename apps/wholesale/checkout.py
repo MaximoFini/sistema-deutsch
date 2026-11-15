@@ -91,6 +91,12 @@ def next_steps(payment_method: str, delivery_method: str, settings_row: StoreSet
     settings_row = settings_row or StoreSettings.load()
     if payment_method == WholesaleOrder.PaymentMethod.TRANSFER:
         days = settings_row.transfer_expiry_days
+        if not settings_row.bank_details.strip():
+            return (
+                "Te pasamos los datos para transferir por email o WhatsApp. Cuando transfieras, subí el "
+                f"comprobante dentro de los próximos {days} días. Cuando confirmemos el pago, preparamos tu "
+                "pedido. Si no recibimos el pago a tiempo, el pedido se cancela y liberamos la mercadería."
+            )
         return (
             f"Transferí el total y subí el comprobante dentro de los próximos {days} días. "
             "Cuando confirmemos el pago, preparamos tu pedido. Si no recibimos el pago a tiempo, "
@@ -301,8 +307,10 @@ def _place(shopper, delivery, payment_method, seen, notes, request) -> SalesDocu
         cargado_por=str(shopper.user),
     )
     steps = next_steps(payment_method, delivery.method, store)
-    if transfer and store.bank_details:
-        steps += "\n\nDatos para transferir:\n" + store.bank_details
+    if transfer:
+        from .payments import bank_details_text
+
+        steps += "\n\nDatos para transferir:\n" + bank_details_text(store)
     mail.enqueue(
         "order_received",
         account.user.email,

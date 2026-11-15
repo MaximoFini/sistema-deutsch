@@ -16,6 +16,10 @@ from apps.pricing.models import PriceList
 
 from . import payments, states
 from .models import Payment, SalesDocument, SalesLine, Shipment
+from .signals import order_invoice_changed
+
+# Canales cuyo cobro y facturación se editan a mano desde la ficha (M4; M8 suma la tienda mayorista).
+EDITABLE_CHANNELS = ("manual", "mayorista")
 
 DELIVERY_METHODS = {
     Shipment.Method.PICKUP: "Retiro en local",
@@ -186,23 +190,33 @@ def _set_invoice(doc: SalesDocument, invoiced: bool, number: str) -> None:
     doc.invoiced_at = (doc.invoiced_at or timezone.now()) if invoiced else None
 
 
+def is_editable(doc) -> bool:
+    """Cobro y facturación a mano: pedidos manuales y mayoristas."""
+    return doc.channel.code in EDITABLE_CHANNELS
+
+
 def _require_manual(doc, user):
     if not user.has_perm("sales.add_manual_order"):
         raise PermissionDenied
-    if doc.channel.code != "manual":
-        raise ManualOrderError("Solo se edita cobro y facturación de pedidos manuales.")
+    if not is_editable(doc):
+        raise ManualOrderError("Solo se edita cobro y facturación de pedidos manuales o mayoristas.")
 
 
 @transaction.atomic
 def update_payment(doc: SalesDocument, *, paid: bool, method: str, user, request=None) -> None:
     _require_manual(doc, user)
-    payment = doc.payments.filter(external_reference="manual").first()
+    if doc.channel.code == "mayorista" and doc.status == states.AWAITING_PAYMENT:
+        raise ManualOrderError(
+            "Este pedido espera la transferencia: confirmá el pago desde «Pago por transferencia»."
+        )
+    reference = doc.channel.code  # "manual" o "mayorista"
+    payment = doc.payments.filter(external_reference=reference).first()
     before = {
         "cobrado": bool(payment and payment.status == Payment.Status.CONFIRMED),
         "medio": getattr(payment, "method", ""),
     }
     if payment is None:
-        payment = Payment(document=doc, external_reference="manual", amount=doc.total)
+        payment = Payment(document=doc, external_reference=reference, amount=doc.total)
     payment.method = method
     payment.status = Payment.Status.CONFIRMED if paid else Payment.Status.PENDING
     payment.paid_at = (payment.paid_at or timezone.now()) if paid else None
@@ -224,6 +238,7 @@ def update_invoice(doc: SalesDocument, *, invoiced: bool, number: str, user, req
     before = {"facturado": doc.invoiced_in_contabilium, "comprobante": doc.invoice_number}
     _set_invoice(doc, invoiced, number)
     doc.save(update_fields=["invoiced_in_contabilium", "invoice_number", "invoiced_at", "updated_at"])
+    order_invoice_changed.send(sender=SalesDocument, document=doc, invoiced=invoiced, user=user)
     audit.record(
         user,
         "order.invoice_updated",

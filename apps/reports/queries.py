@@ -813,3 +813,123 @@ def manual_pending(today: date | None = None) -> dict:
             }
         )
     return {"rows": rows, "count": len(rows), "total": sum((r["total"] for r in rows), ZERO)}
+
+
+# ── Mayorista (M8a · US-9) ────────────────────────────────────────────────
+
+
+def _wholesale_q(f: Filters) -> Q:
+    """Pedidos mayoristas del período, sin cancelados (el filtro de canal no aplica: siempre mayorista)."""
+    return Q(
+        doc_type=ORDER,
+        channel__code="mayorista",
+        issued_at__gte=f.start_dt,
+        issued_at__lt=f.end_dt,
+    ) & ~Q(status=states.CANCELLED)
+
+
+def wholesale(f: Filters, today: date | None = None) -> dict:
+    """Pestaña Mayorista: ventas por cliente y por quién cargó, pendientes y saldos a favor (6 consultas)."""
+    from apps.wholesale.models import CustomerBalance, WholesaleOrder
+
+    today = today or timezone.localdate()
+    base = SalesDocument.objects.filter(_wholesale_q(f))
+    by_customer = list(
+        base.values("customer_id", "customer__legal_name", "customer__trade_name")
+        .annotate(n_docs=Count("id"), net_sum=Sum("subtotal"), gross_sum=Sum("total"))
+        .order_by("-gross_sum", "customer__legal_name")
+    )
+    customers = [
+        {
+            "clave": r["customer__trade_name"] or r["customer__legal_name"] or "Sin cliente",
+            "pedidos": r["n_docs"],
+            "neto": _dec(r["net_sum"]),
+            "total": _dec(r["gross_sum"]),
+        }
+        for r in by_customer
+    ]
+    by_seller = list(
+        base.values("wholesale__on_behalf", "wholesale__placed_by__full_name", "wholesale__placed_by__email")
+        .annotate(n_docs=Count("id"), net_sum=Sum("subtotal"), gross_sum=Sum("total"))
+        .order_by("-gross_sum")
+    )
+    customer_row = {"clave": "El cliente (en la tienda)", "pedidos": 0, "neto": ZERO, "total": ZERO}
+    sellers = []
+    for r in by_seller:
+        if not r["wholesale__on_behalf"]:
+            customer_row["pedidos"] += r["n_docs"]
+            customer_row["neto"] += _dec(r["net_sum"])
+            customer_row["total"] += _dec(r["gross_sum"])
+            continue
+        name = r["wholesale__placed_by__full_name"] or r["wholesale__placed_by__email"] or "Sin dato"
+        sellers.append(
+            {"clave": name, "pedidos": r["n_docs"], "neto": _dec(r["net_sum"]), "total": _dec(r["gross_sum"])}
+        )
+    if customer_row["pedidos"]:
+        sellers.append(customer_row)
+    sellers.sort(key=lambda r: r["total"], reverse=True)
+
+    def rows(qs, kind):
+        out = []
+        for o in qs.select_related("document__customer").order_by("document__issued_at"):
+            d = o.document
+            out.append(
+                {
+                    "document_id": d.pk,
+                    "pedido": d.channel_reference or str(d),
+                    "cliente": str(d.customer) if d.customer else "",
+                    "fecha": timezone.localtime(d.issued_at),
+                    "dias": (today - timezone.localtime(d.issued_at).date()).days,
+                    "total": d.total,
+                    "vence": o.expires_at,
+                    "estado": states.label(d.status),
+                    "tipo": kind,
+                }
+            )
+        return out
+
+    orders = WholesaleOrder.objects.filter(document__doc_type=ORDER)
+    awaiting = rows(orders.filter(document__status=states.AWAITING_PAYMENT), "Esperando pago")
+    # Vencidos: transferencias canceladas por el sistema al vencer el plazo, dentro del período.
+    expired = rows(
+        orders.filter(
+            expired_at__isnull=False,
+            document__issued_at__gte=f.start_dt,
+            document__issued_at__lt=f.end_dt,
+        ),
+        "Vencido",
+    )
+    not_invoiced = rows(
+        orders.filter(document__invoiced_in_contabilium=False).exclude(
+            document__status__in=[states.CANCELLED, states.AWAITING_PAYMENT]
+        ),
+        "Sin facturar",
+    )
+    balances = list(
+        CustomerBalance.objects.values("customer_id", "customer__legal_name", "customer__trade_name")
+        .annotate(saldo=Sum("amount"))
+        .filter(saldo__gt=0)
+        .order_by("-saldo")
+    )
+    balance_rows = [
+        {"clave": r["customer__trade_name"] or r["customer__legal_name"], "saldo": _dec(r["saldo"])}
+        for r in balances
+    ]
+
+    def total(items, key="total"):
+        return sum((i[key] for i in items), ZERO)
+
+    return {
+        "customers": customers,
+        "customers_total": {
+            "pedidos": sum(r["pedidos"] for r in customers),
+            "neto": total(customers, "neto"),
+            "total": total(customers),
+        },
+        "sellers": sellers,
+        "awaiting": awaiting,
+        "expired": expired,
+        "not_invoiced": not_invoiced,
+        "balances": balance_rows,
+        "balances_total": total(balance_rows, "saldo"),
+    }

@@ -196,6 +196,7 @@ class StoreSettingsView(PanelPermissionRequiredMixin, FormView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["pending_emails"] = mail.pending_count()
+        ctx["bank_missing"] = not StoreSettings.load().bank_details.strip()
         return ctx
 
 
