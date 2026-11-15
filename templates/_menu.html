@@ -13,6 +13,7 @@
 {% if perms.conversations.view_question or perms.conversations.view_message or perms.conversations.view_claim or perms.catalog.view_listing_health %}
 <span class="contents" hx-get="{% url 'ml:counters' %}" hx-trigger="load, every 60s" hx-swap="innerHTML">{% include "conversations/_menu_links.html" %}</span>
 {% endif %}
+{% if perms.reports.view_reports %}<a href="{% url 'reports:summary' %}" class="hover:underline">Reportes</a>{% endif %}
 {% if perms.alerts.view_alert %}<a href="{% url 'alerts:list' %}" class="hover:underline">Avisos</a>{% endif %}
 {% if perms.integrations.view_status %}<a href="{% url 'integrations:status' %}" class="hover:underline">Integraciones</a>{% endif %}
 {% if perms.accounts.manage_users %}<a href="{% url 'accounts:user_list' %}" class="hover:underline">Usuarios</a>{% endif %}

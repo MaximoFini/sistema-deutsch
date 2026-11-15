@@ -18,6 +18,7 @@ urlpatterns = [
     path("pedidos/", include("apps.sales.urls")),
     path("catalogo/", include("apps.catalog.urls")),
     path("ml/", include("apps.conversations.urls")),
+    path("reportes/", include("apps.reports.urls")),
     path("integraciones/tiendanube/", include("apps.integrations.adapters.tiendanube.urls")),
     path("integraciones/mercadolibre/", include("apps.integrations.adapters.mercadolibre.urls")),
     path("integraciones/", include("apps.integrations.urls")),

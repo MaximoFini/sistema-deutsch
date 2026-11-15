@@ -109,13 +109,15 @@ def create_manual_order(
         raise ManualOrderError("Elegí la forma de entrega.")
     for ml in lines:
         _validate_line(ml)
+    now = timezone.now()
     doc = SalesDocument.objects.create(
         doc_type=SalesDocument.DocType.ORDER,
         channel=Channel.objects.get(code="manual"),
         customer=customer,
         status=states.NEW,
-        status_changed_at=timezone.now(),
-        issued_at=timezone.now(),
+        status_changed_at=now,
+        issued_at=now,
+        ready_at=now,  # M7: los manuales entran como Nuevo (listos para preparar)
         notes=notes,
     )
     doc.channel_reference = f"Manual #{doc.number}"

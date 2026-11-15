@@ -67,8 +67,13 @@ class StockMovement(models.Model):
     note = models.CharField("nota", max_length=255, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)
     created_at = models.DateTimeField("fecha", auto_now_add=True, db_index=True)
+    # M7: stock físico que quedó después del movimiento (solo si afecta `on_hand`). Vacío = sin historial.
+    on_hand_after = models.DecimalField(
+        "físico después", max_digits=12, decimal_places=3, null=True, blank=True
+    )
 
     class Meta:
         verbose_name = "movimiento de stock"
         verbose_name_plural = "movimientos de stock"
         ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["variant", "created_at"], name="stockmov_variant_created_idx")]

@@ -4,6 +4,7 @@ import io
 import logging
 import zipfile
 from datetime import timedelta
+from decimal import Decimal
 
 from django.conf import settings
 from django.core.files.base import ContentFile
@@ -13,7 +14,7 @@ from apps.integrations.http import ChannelHTTPError
 from apps.sales.models import Shipment
 
 from . import orders
-from .common import dt, error_body
+from .common import dec, dt, error_body
 
 logger = logging.getLogger(__name__)
 NEW_FORMAT = {"x-format-new": "true"}
@@ -30,6 +31,8 @@ LOGISTIC_METHOD = {
 }
 LABEL_METHODS = {Shipment.Method.ME_FLEX, Shipment.Method.ME_COLECTA, Shipment.Method.ME_DROP_OFF}
 CLOSED_STATUSES = {"delivered", "cancelled", "not_delivered"}
+# M7: desde ready_to_ship ML ya informa cuánto paga el vendedor por el envío.
+COST_STATUSES = {"ready_to_ship", "shipped", "delivered", "not_delivered"}
 
 
 class LabelNotReady(Exception):
@@ -90,11 +93,40 @@ def refresh(client, shipment_id) -> Shipment | None:
         "tracking_number": shipment.tracking_number,
     }:
         _drop_saved_labels(shipment)
+    if shipment.seller_cost is None and shipment.status in COST_STATUSES:
+        _try_seller_cost(shipment)
+    orders.refresh_net_pending(document)
     orders.refresh_channel_status(document)
     from apps.sales import sync as order_sync
 
     order_sync.sync_internal_status(document)
     return shipment
+
+
+def fetch_seller_cost(client, shipment: Shipment) -> Decimal | None:
+    """M7 (solo lectura): costo del envío que paga el vendedor, según `/shipments/{id}/costs`.
+
+    Guarda `seller_cost` y lo devuelve. None si ML no informa remitentes (se reintenta en el backfill).
+    """
+    data = client.get(f"/shipments/{shipment.external_id}/costs")
+    senders = data.get("senders") or []
+    if not senders:
+        return None
+    cost = sum((dec(s.get("cost"), Decimal(0)) for s in senders), Decimal(0)).quantize(Decimal("0.01"))
+    shipment.seller_cost = cost
+    Shipment.objects.filter(pk=shipment.pk).update(seller_cost=cost)
+    return cost
+
+
+def _try_seller_cost(shipment: Shipment) -> None:
+    """Dentro de la sincronización: cliente rápido (4 s, sin reintentos). Si falla, lo completa
+    la corrida diaria de `reports_backfill ml_fees`."""
+    from .client import MLClient
+
+    try:
+        fetch_seller_cost(MLClient.quick(), shipment)
+    except Exception as exc:  # noqa: BLE001 — un dato de reportes nunca frena la sincronización
+        logger.info("Costo del envío ML %s no disponible todavía: %s", shipment.external_id, exc)
 
 
 def _drop_saved_labels(shipment: Shipment) -> None:

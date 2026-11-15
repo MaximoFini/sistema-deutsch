@@ -59,6 +59,8 @@ def _snapshot(order: dict) -> dict:
                 "variation_attributes": (oi.get("item") or {}).get("variation_attributes") or [],
                 "quantity": oi.get("quantity") or 0,
                 "unit_price": str(oi.get("unit_price") or 0),
+                # Comisión de ML por unidad (M7). None = ML no la informó: neto pendiente.
+                "sale_fee": None if oi.get("sale_fee") is None else str(oi.get("sale_fee")),
             }
             for oi in order.get("order_items") or []
         ],
@@ -148,13 +150,16 @@ def rebuild(document: SalesDocument) -> None:
                 if a.get("value_name")
             )
             description = f"{item['title']} ({attrs})" if attrs else item["title"]
+            quantity = dec(item.get("quantity"), 0)
+            sale_fee = dec(item.get("sale_fee"), None)
             line = SalesLine.objects.create(
                 document=document,
                 variant=variant,
                 sku_snapshot=(item.get("seller_sku") or (variant.sku if variant else ""))[:64],
                 description_snapshot=description[:300],
-                quantity=dec(item.get("quantity"), 0),
+                quantity=quantity,
                 unit_price=dec(item.get("unit_price"), 0),
+                channel_fee=None if sale_fee is None else (sale_fee * quantity).quantize(Decimal("0.01")),
             )
             subtotal += line.line_total
             if variant is None:
@@ -190,7 +195,36 @@ def rebuild(document: SalesDocument) -> None:
     if snapshots and document.customer_id is None:
         document.customer = _customer(snapshots[0].get("buyer") or {})
     document.channel_status = _channel_status(snapshots, document)
+    document.net_pending = net_is_pending(document, snapshots)
     document.save()
+
+
+def net_is_pending(document: SalesDocument, snapshots: list[dict] | None = None) -> bool:
+    """M7: falta la comisión de alguna línea o el costo de envío del vendedor de algún envío.
+
+    Los envíos salen de los snapshots de las órdenes (el Shipment puede no existir todavía).
+    Una venta sin envío de ML (acordar con el vendedor) no tiene costo de envío.
+    """
+    if document.lines.filter(channel_fee__isnull=True).exists():
+        return True
+    if snapshots is None:
+        snapshots = [r.extra for r in _order_refs(document)]
+    shipping_ids = {str(s["shipping_id"]) for s in snapshots if s.get("shipping_id")}
+    if not shipping_ids:
+        return False
+    known = set(
+        document.shipments.filter(external_id__in=shipping_ids, seller_cost__isnull=False).values_list(
+            "external_id", flat=True
+        )
+    )
+    return bool(shipping_ids - known)
+
+
+def refresh_net_pending(document: SalesDocument) -> None:
+    pending = net_is_pending(document)
+    if pending != document.net_pending:
+        document.net_pending = pending
+        SalesDocument.objects.filter(pk=document.pk).update(net_pending=pending)
 
 
 def _is_newer(ref: ExternalRef | None, order: dict) -> bool:
@@ -203,15 +237,18 @@ def _is_newer(ref: ExternalRef | None, order: dict) -> bool:
 
 
 @transaction.atomic
-def upsert_order(order: dict) -> tuple[SalesDocument, bool]:
-    """Devuelve (documento, cambió). Si la orden no es más nueva que la guardada, no escribe nada."""
+def upsert_order(order: dict, *, force: bool = False) -> tuple[SalesDocument, bool]:
+    """Devuelve (documento, cambió). Si la orden no es más nueva que la guardada, no escribe nada.
+
+    `force=True` (backfill de comisiones de M7) reconstruye aunque la fecha de actualización sea la misma.
+    """
     order_key = f"order:{order['id']}"
     order_ref = (
         ExternalRef.objects.select_for_update()
         .filter(channel__code=CHANNEL, content_type__model="salesdocument", external_id=order_key)
         .first()
     )
-    if order_ref is not None and not _is_newer(order_ref, order):
+    if order_ref is not None and not force and not _is_newer(order_ref, order):
         return SalesDocument.objects.get(pk=order_ref.object_id), False
     key = document_key(order)
     document = None

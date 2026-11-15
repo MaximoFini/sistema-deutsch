@@ -1,0 +1,22 @@
+{% load reports %}
+{# Tabla de calor de pedidos por día de la semana y hora (hora Argentina). Recibe `heat` y `hours`. #}
+<div class="overflow-x-auto">
+  {% if heat.max %}
+  <table class="w-full min-w-[640px] border-separate border-spacing-0.5 text-[11px]">
+    <thead><tr><th></th>{% for h in hours %}<th class="font-normal text-stone-500">{{ h }}</th>{% endfor %}<th class="pl-2 text-right font-normal text-stone-500">Total</th></tr></thead>
+    <tbody>
+    {% for row in heat.rows %}
+      <tr>
+        <th class="pr-2 text-left font-normal text-stone-600">{{ row.day|slice:":3" }}</th>
+        {% for c in row.cells %}
+          <td title="{{ row.day }} {{ c.hour }} h: {{ c.count }} pedido{{ c.count|pluralize }}" class="h-6 rounded-sm text-center {% if c.level == 0 %}bg-stone-100 text-stone-300{% elif c.level == 1 %}bg-amber-100 text-amber-900{% elif c.level == 2 %}bg-amber-200 text-amber-900{% elif c.level == 3 %}bg-amber-300 text-amber-950{% elif c.level == 4 %}bg-amber-500 text-white{% else %}bg-amber-700 text-white{% endif %}">{% if c.count %}{{ c.count }}{% endif %}</td>
+        {% endfor %}
+        <td class="pl-2 text-right text-stone-600">{{ row.total }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="py-6 text-center text-sm text-stone-500">No hay ventas en este período.</p>
+  {% endif %}
+</div>

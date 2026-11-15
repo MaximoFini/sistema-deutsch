@@ -4,6 +4,9 @@ Se cargan datos moderados con bulk_create (rápido) y cada pantalla tiene un pre
 consultas. Si alguien agrega un N+1, el número se dispara y el test falla.
 """
 
+import io
+import random
+import time
 from datetime import timedelta
 from decimal import Decimal
 
@@ -321,3 +324,208 @@ def test_alert_task_second_run_is_cheap(db, django_assert_max_num_queries):
     with django_assert_max_num_queries(2):
         assert tasks.check_questions(now=now + timedelta(minutes=5)) == 0
         assert tasks.check_claims_due(now=now + timedelta(minutes=5)) == 0
+
+
+# ── M7 · Reportes: 12 meses de datos (~10.000 pedidos) ────────────────────
+
+REPORT_ORDERS = 10_000
+REPORT_VARIANTS = 400
+# (pantalla, parámetros extra): presupuesto de consultas (medido + margen chico).
+REPORT_SCREENS = {
+    ("reports:summary", ""): 14,  # medido: 11 (0,32 s)
+    ("reports:sales", ""): 11,  # medido: 8 (0,24 s)
+    ("reports:sales", "&agrupar=variante&orden=-unidades"): 10,  # medido: 7 (0,35 s)
+    ("reports:sales", "&agrupar=talle"): 10,  # medido: 7 (0,24 s)
+    ("reports:sales", "&agrupar=dia"): 11,  # medido: 8 (0,22 s)
+    ("reports:products", ""): 21,  # medido: 18 (0,82 s: top 50 ×2, stock y "se agotan")
+    ("reports:operations", ""): 17,  # medido: 14 (0,87 s)
+    ("reports:summary_excel", ""): 14,  # medido: 11 (0,25 s)
+    ("reports:sales_excel", "&agrupar=variante"): 10,  # medido: 7 (0,34 s)
+    ("reports:products_excel", ""): 21,  # medido: 18 (0,75 s)
+    ("reports:operations_excel", ""): 16,  # medido: 13 (0,58 s)
+}
+
+
+def _report_volume():
+    """10.000 pedidos y 20.000 líneas repartidos en 12 meses, con envíos, preguntas y 20.000 movimientos de stock."""
+    from django.db import connection
+
+    from apps.conversations.models import Question
+    from apps.inventory.models import StockLevel, StockMovement, Warehouse
+
+    rnd = random.Random(7)
+    channels = list(
+        Channel.objects.filter(code__in=["tiendanube", "mercadolibre", "manual"]).order_by("code")
+    )
+    now = timezone.now()
+    products = Product.objects.bulk_create(
+        [Product(name=f"Producto R{i}") for i in range(REPORT_VARIANTS // 4)]
+    )
+    sizes, colors = ["S", "M", "L", "XL"], ["Negro", "Blanco", "Gris"]
+    variants = Variant.objects.bulk_create(
+        [
+            Variant(
+                product=products[i // 4],
+                sku=f"R-{i:04d}",
+                attributes={"Talle": sizes[i % 4], "Color": colors[i % 3]},
+            )
+            for i in range(REPORT_VARIANTS)
+        ]
+    )
+    statuses = [states.DELIVERED] * 6 + [states.DISPATCHED, states.NEW, states.CANCELLED, states.READY]
+    docs = []
+    for i in range(REPORT_ORDERS):
+        issued = now - timedelta(minutes=rnd.randint(0, 364 * 24 * 60))
+        status = statuses[i % len(statuses)]
+        out = issued + timedelta(hours=rnd.randint(1, 72))
+        channel = channels[i % 3]
+        docs.append(
+            SalesDocument(
+                doc_type=SalesDocument.DocType.ORDER,
+                channel=channel,
+                number=500000 + i,
+                status=status,
+                issued_at=issued,
+                ready_at=issued,
+                dispatched_at=out if status in (states.DELIVERED, states.DISPATCHED) and out < now else None,
+                total=Decimal(rnd.randint(5, 80) * 1000),
+                channel_reference=f"R{i}",
+                net_pending=channel.code == "mercadolibre" and i % 20 == 0,
+                invoiced_in_contabilium=i % 7 != 0,
+            )
+        )
+    docs = SalesDocument.objects.bulk_create(docs, batch_size=2000)
+    SalesLine.objects.bulk_create(
+        [
+            SalesLine(
+                document=d,
+                variant=None if (i + k) % 97 == 0 else variants[(i * 3 + k) % REPORT_VARIANTS],
+                sku_snapshot=f"R-{(i * 3 + k) % REPORT_VARIANTS:04d}",
+                description_snapshot="Producto",
+                quantity=1 + k,
+                unit_price=Decimal(5000),
+                line_total=Decimal(5000 * (1 + k)),
+                channel_fee=Decimal(600) if d.channel.code == "mercadolibre" else None,
+            )
+            for i, d in enumerate(docs)
+            for k in range(2)
+        ],
+        batch_size=5000,
+    )
+    methods = [Shipment.Method.ME_FLEX, Shipment.Method.ME_COLECTA, Shipment.Method.ME_FULL]
+    Shipment.objects.bulk_create(
+        [
+            Shipment(
+                document=d,
+                method=methods[i % 3] if d.channel.code == "mercadolibre" else Shipment.Method.CARRIER,
+                dispatch_deadline=d.issued_at + timedelta(hours=24)
+                if d.channel.code == "mercadolibre"
+                else None,
+                seller_cost=Decimal(1500) if d.channel.code == "mercadolibre" else None,
+            )
+            for i, d in enumerate(docs)
+        ],
+        batch_size=5000,
+    )
+    Payment.objects.bulk_create(
+        [
+            Payment(document=d, method="cash", amount=d.total, status=Payment.Status.CONFIRMED)
+            for d in docs
+            if d.channel.code == "manual" and d.number % 5
+        ],
+        batch_size=5000,
+    )
+    ml = next(c for c in channels if c.code == "mercadolibre")
+    Question.objects.bulk_create(
+        [
+            Question(
+                channel=ml,
+                external_id=f"rq{i}",
+                text="?",
+                asked_at=now - timedelta(hours=i % 8000 + 5),
+                answered_at=now - timedelta(hours=i % 8000) if i % 10 else None,
+                status="answered" if i % 10 else "unanswered",
+            )
+            for i in range(3000)
+        ]
+    )
+    warehouse = Warehouse.objects.get(is_default=True)
+    movements = []
+    for v in variants:
+        level = 5
+        for k in range(50):  # sube y baja; cada tanto queda en 0
+            new = 0 if k % 9 == 4 else rnd.randint(1, 10)
+            movements.append(
+                StockMovement(
+                    variant=v,
+                    warehouse=warehouse,
+                    kind=StockMovement.Kind.SYNC_ADJUSTMENT,
+                    quantity=new - level,
+                    source=StockMovement.Source.CONTABILIUM_SYNC,
+                    on_hand_after=new,
+                )
+            )
+            level = new
+    created = StockMovement.objects.bulk_create(movements, batch_size=5000)
+    with connection.cursor() as cursor:  # created_at es auto_now_add: se reparte en el año
+        cursor.execute(
+            "UPDATE inventory_stockmovement SET created_at = %s - (%s - id) * interval '26 minutes'",
+            [now, created[-1].pk],
+        )
+    StockLevel.objects.bulk_create([StockLevel(variant=v, warehouse=warehouse, on_hand=3) for v in variants])
+
+
+def test_reports_volume_under_two_seconds(admin_client):
+    """M7 · T9: con 12 meses (~10.000 pedidos y 20.000 líneas) cada pantalla y Excel tarda menos de 2 s."""
+    _report_volume()
+    today = timezone.localdate()
+    year = f"?periodo=rango&desde={today - timedelta(days=364)}&hasta={today}"
+    admin_client.get(reverse("core:home"))  # calienta sesión y permisos
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    timings = {}
+    for (name, extra), budget in REPORT_SCREENS.items():
+        url = reverse(name) + year + extra
+        start = time.perf_counter()
+        with CaptureQueriesContext(connection) as ctx:
+            response = admin_client.get(url)
+        elapsed = time.perf_counter() - start
+        timings[f"{name}{extra}"] = f"{elapsed:.2f} s / {len(ctx)} consultas"
+        assert response.status_code == 200
+        assert elapsed < 2.0, f"{name}{extra} tardó {elapsed:.2f} s"
+        assert len(ctx) <= budget, f"{name}{extra}: {len(ctx)} consultas (presupuesto {budget})"
+    kpis = admin_client.get(reverse("reports:summary") + year).context["kpis"]["by_key"]
+    assert kpis["orders"]["value"] == REPORT_ORDERS - REPORT_ORDERS // 10  # sin los cancelados
+    print("\nTiempos M7: " + "; ".join(f"{k} {v}" for k, v in timings.items()))
+
+
+def test_reports_excel_50000_rows_under_ten_seconds():
+    """M7 · T9: un Excel de 50.000 filas (con formato de pesos) se genera en menos de 10 s."""
+    from openpyxl import load_workbook
+
+    from apps.reports.excel import Sheet, build
+
+    money = [Decimal("12345.67"), Decimal("11000.10"), Decimal("4500.00")]
+    rows = [
+        [f"SKU-{i:05d}", "Producto de prueba", "M", "Negro", i % 7 + 1, i % 5 + 1, *money]
+        for i in range(50_000)
+    ]
+    start = time.perf_counter()
+    content = build(
+        [
+            Sheet(
+                "Ventas",
+                ["SKU", "Producto", "Talle", "Color", "Unidades", "Pedidos", "Bruto", "Neto", "Precio"],
+                rows,
+                totals=["Total", "", "", "", 0, 0, *money],
+                money_columns={6, 7, 8},
+                note="Prueba de volumen",
+            )
+        ]
+    )
+    elapsed = time.perf_counter() - start
+    print(f"\nExcel 50.000 filas: {elapsed:.2f} s, {len(content) / 1e6:.1f} MB")
+    assert elapsed < 10.0
+    ws = load_workbook(io.BytesIO(content), read_only=True)["Ventas"]
+    assert ws.max_row == 50_003  # nota + encabezados + filas + totales

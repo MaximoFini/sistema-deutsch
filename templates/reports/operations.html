@@ -1,0 +1,103 @@
+{% extends "reports/_layout.html" %}
+{% load reports %}
+{% block report_title %}Operación{% endblock %}
+{% block report %}
+<section class="mb-6 rounded-lg border border-stone-200 bg-white p-3">
+  <h2 class="mb-2 font-semibold">Días y horas en que entran los pedidos</h2>
+  {% include "reports/_heatmap.html" %}
+</section>
+
+<section class="mb-6 rounded-lg border border-stone-200 bg-white p-3">
+  <h2 class="font-semibold">Tiempo de respuesta a preguntas de Mercado Libre</h2>
+  {% if not responses.available %}
+    <p class="py-4 text-sm text-stone-500">Las preguntas son solo de Mercado Libre: elegí "Todos los canales" o "Mercado Libre".</p>
+  {% elif not responses.overall.n %}
+    <p class="py-4 text-sm text-stone-500">No se respondieron preguntas en este período.</p>
+  {% else %}
+    <p class="mb-3 text-xs text-stone-500">Desde que el comprador pregunta hasta que se responde. {{ responses.overall.n }} pregunta{{ responses.overall.n|pluralize }} respondida{{ responses.overall.n|pluralize }} en el período.</p>
+    <div class="mb-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div class="rounded border border-stone-200 p-2"><p class="text-xs text-stone-500">Mediana</p><p class="text-lg font-semibold">{{ responses.overall.mediana_h|hours }}</p></div>
+      <div class="rounded border border-stone-200 p-2"><p class="text-xs text-stone-500">9 de cada 10, en menos de</p><p class="text-lg font-semibold">{{ responses.overall.p90_h|hours }}</p></div>
+      <div class="rounded border border-stone-200 p-2"><p class="text-xs text-stone-500">En menos de 1 hora</p><p class="text-lg font-semibold">{{ responses.overall.pct_1h|pct }}</p></div>
+      <div class="rounded border border-stone-200 p-2"><p class="text-xs text-stone-500">En menos de 12 horas</p><p class="text-lg font-semibold">{{ responses.overall.pct_12h|pct }}</p></div>
+    </div>
+    <div class="overflow-x-auto">
+    <table class="w-full min-w-[560px] text-sm">
+      <thead class="text-left text-stone-500"><tr><th class="py-1 pr-2">Persona</th><th class="py-1 pr-2 text-right">Respondidas</th><th class="py-1 pr-2 text-right">Mediana</th><th class="py-1 pr-2 text-right">Percentil 90</th><th class="py-1 pr-2 text-right">&lt; 1 h</th><th class="py-1 text-right">&lt; 12 h</th></tr></thead>
+      <tbody>
+      {% for p in responses.people %}
+        <tr class="border-t border-stone-100"><td class="py-1 pr-2">{{ p.persona }}</td><td class="py-1 pr-2 text-right">{{ p.n }}</td><td class="py-1 pr-2 text-right">{{ p.mediana_h|hours }}</td><td class="py-1 pr-2 text-right">{{ p.p90_h|hours }}</td><td class="py-1 pr-2 text-right">{{ p.pct_1h|pct }}</td><td class="py-1 text-right">{{ p.pct_12h|pct }}</td></tr>
+      {% empty %}
+        <tr><td colspan="6" class="py-3 text-center text-stone-500">Ninguna se respondió desde el sistema (las respondidas desde Mercado Libre no tienen persona).</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% endif %}
+</section>
+
+<section class="mb-6 rounded-lg border border-stone-200 bg-white p-3">
+  <h2 class="font-semibold">Tiempo de despacho</h2>
+  <p class="mb-3 text-xs text-stone-500">Desde que el pedido queda Nuevo (pago confirmado) hasta Despachado o Listo para retirar. Sin Full (lo despacha Mercado Libre).</p>
+  {% if not dispatch.overall.n %}
+    <p class="py-4 text-sm text-stone-500">No se despacharon pedidos en este período.</p>
+  {% else %}
+    <p class="mb-3 text-sm">{{ dispatch.overall.n }} pedido{{ dispatch.overall.n|pluralize }} · mediana <strong>{{ dispatch.overall.mediana_h|hours }}</strong> · percentil 90 <strong>{{ dispatch.overall.p90_h|hours }}</strong></p>
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-stone-500"><tr><th class="py-1 pr-2">Canal</th><th class="py-1 pr-2 text-right">Pedidos</th><th class="py-1 pr-2 text-right">Mediana</th><th class="py-1 text-right">Percentil 90</th></tr></thead>
+          <tbody>{% for r in dispatch.by_channel %}<tr class="border-t border-stone-100"><td class="py-1 pr-2">{{ r.clave }}</td><td class="py-1 pr-2 text-right">{{ r.n }}</td><td class="py-1 pr-2 text-right">{{ r.mediana_h|hours }}</td><td class="py-1 text-right">{{ r.p90_h|hours }}</td></tr>{% endfor %}</tbody>
+        </table>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-stone-500"><tr><th class="py-1 pr-2">Forma de envío</th><th class="py-1 pr-2 text-right">Pedidos</th><th class="py-1 pr-2 text-right">Mediana</th><th class="py-1 text-right">Percentil 90</th></tr></thead>
+          <tbody>{% for r in dispatch.by_method %}<tr class="border-t border-stone-100"><td class="py-1 pr-2">{{ r.clave }}</td><td class="py-1 pr-2 text-right">{{ r.n }}</td><td class="py-1 pr-2 text-right">{{ r.mediana_h|hours }}</td><td class="py-1 text-right">{{ r.p90_h|hours }}</td></tr>{% endfor %}</tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+</section>
+
+<section class="mb-6 rounded-lg border border-stone-200 bg-white p-3">
+  <h2 class="font-semibold">Flex y Colecta despachados a tiempo</h2>
+  {% if not flex.total %}
+    <p class="py-4 text-sm text-stone-500">No se despacharon envíos Flex ni Colecta en este período.</p>
+  {% else %}
+    <p class="mb-3 text-sm"><strong class="text-lg {% if flex.pct >= 95 %}text-emerald-700{% elif flex.pct >= 85 %}text-amber-700{% else %}text-red-700{% endif %}">{{ flex.pct|pct }}</strong> a tiempo · {{ flex.on_time }} de {{ flex.total }} salieron antes de la fecha límite{% if flex.late_count %} y {{ flex.late_count }} tarde{% endif %}.</p>
+    {% if flex.late %}
+    <div class="overflow-x-auto">
+    <table class="w-full min-w-[560px] text-sm">
+      <thead class="text-left text-stone-500"><tr><th class="py-1 pr-2">Pedido</th><th class="py-1 pr-2">Modalidad</th><th class="py-1 pr-2">Despachar antes de</th><th class="py-1 pr-2">Despachado</th><th class="py-1 text-right">Demora</th></tr></thead>
+      <tbody>
+      {% for r in flex_late %}
+        <tr class="border-t border-stone-100"><td class="py-1 pr-2"><a class="underline" href="{% url 'sales:detail' r.document_id %}">{{ r.pedido }}</a></td><td class="py-1 pr-2">{{ r.modalidad }}</td><td class="py-1 pr-2">{{ r.limite|date:"d/m H:i" }}</td><td class="py-1 pr-2">{{ r.despachado|date:"d/m H:i" }}</td><td class="py-1 text-right text-red-700">{{ r.demora_h|hours }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% if flex.late_count > flex_late|length %}<p class="mt-2 text-xs text-stone-500">Se muestran los últimos {{ flex_late|length }}; el Excel tiene todos.</p>{% endif %}
+    {% endif %}
+  {% endif %}
+</section>
+
+<section class="rounded-lg border border-stone-200 bg-white p-3">
+  <h2 class="font-semibold">Pedidos manuales sin cobrar o sin facturar</h2>
+  <p class="mb-3 text-xs text-stone-500">A la fecha, sin importar el período. {% if manual.count %}{{ manual.count }} pedido{{ manual.count|pluralize }} por {{ manual.total|money }}.{% endif %}</p>
+  {% if manual.rows %}
+  <div class="overflow-x-auto">
+  <table class="w-full min-w-[640px] text-sm">
+    <thead class="text-left text-stone-500"><tr><th class="py-1 pr-2">Pedido</th><th class="py-1 pr-2">Cliente</th><th class="py-1 pr-2">Cargado</th><th class="py-1 pr-2 text-right">Días</th><th class="py-1 pr-2 text-right">Total</th><th class="py-1">Falta</th></tr></thead>
+    <tbody>
+    {% for r in manual.rows %}
+      <tr class="border-t border-stone-100"><td class="py-1 pr-2"><a class="underline" href="{% url 'sales:detail' r.document_id %}">{{ r.pedido }}</a></td><td class="py-1 pr-2">{{ r.cliente|truncatechars:40 }}</td><td class="py-1 pr-2">{{ r.fecha|date:"d/m/Y" }}</td><td class="py-1 pr-2 text-right {% if r.dias >= 7 %}font-semibold text-red-700{% endif %}">{{ r.dias }}</td><td class="py-1 pr-2 text-right">{{ r.total|money }}</td><td class="py-1">{{ r.falta }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    <p class="py-4 text-sm text-stone-500">No hay pedidos manuales pendientes de cobro ni de factura.</p>
+  {% endif %}
+</section>
+{% endblock %}

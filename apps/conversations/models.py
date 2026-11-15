@@ -45,7 +45,10 @@ class Question(TimeStampedModel):
         constraints = [
             models.UniqueConstraint(fields=["channel", "external_id"], name="unique_question_per_channel")
         ]
-        indexes = [models.Index(fields=["status", "asked_at"], name="question_status_asked")]
+        indexes = [
+            models.Index(fields=["status", "asked_at"], name="question_status_asked"),
+            models.Index(fields=["answered_at"], name="question_answered_idx"),  # M7: tiempos de respuesta
+        ]
         permissions = [("answer_question", "Puede responder preguntas de los canales")]
 
     def __str__(self) -> str:

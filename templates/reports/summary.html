@@ -1,0 +1,101 @@
+{% extends "reports/_layout.html" %}
+{% load reports %}
+{% block report_title %}Resumen{% endblock %}
+{% block report %}
+<div class="mb-4 space-y-2 text-sm">
+  {% if kpis.net_pending %}
+    <div class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">{{ kpis.net_pending }} venta{{ kpis.net_pending|pluralize }} de Mercado Libre con neto pendiente: todavía falta la comisión o el costo de envío, así que el neto puede bajar un poco cuando se completen.</div>
+  {% endif %}
+  {% if f.channel != "mercadolibre" %}
+    <p class="text-stone-600">Tiendanube y manuales: sin comisiones del canal (el neto es igual al bruto).</p>
+  {% endif %}
+</div>
+
+<div class="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+  {% for k in kpis.items %}
+    <div class="rounded-lg border border-stone-200 bg-white p-3">
+      <p class="text-xs text-stone-500">{{ k.label }}</p>
+      <p class="mt-1 text-lg font-semibold md:text-xl">{% if k.kind == "money" %}{{ k.value|money }}{% else %}{{ k.value|num }}{% endif %}</p>
+      <p class="mt-1 text-xs {% if k.good is True %}text-emerald-700{% elif k.good is False %}text-red-700{% else %}text-stone-500{% endif %}">
+        {% if k.change is None %}Sin datos del período anterior{% elif k.change == 0 %}Igual que el período anterior{% else %}{% if k.change > 0 %}▲{% else %}▼{% endif %} {{ k.change|pct }} vs. período anterior{% endif %}
+      </p>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="mb-6 grid gap-4 md:grid-cols-3">
+  <section class="rounded-lg border border-stone-200 bg-white p-3 md:col-span-2">
+    <h2 class="mb-2 font-semibold">Ventas por {% if by_day.bucket == "day" %}día{% elif by_day.bucket == "week" %}semana{% else %}mes{% endif %} y canal</h2>
+    {% if by_day.empty %}
+      <p class="py-10 text-center text-sm text-stone-500">No hay ventas en este período.</p>
+    {% else %}
+      <div class="relative h-64 md:h-72"><canvas id="chart-days" aria-label="Ventas por día y canal" role="img"></canvas></div>
+    {% endif %}
+  </section>
+  <section class="rounded-lg border border-stone-200 bg-white p-3">
+    <h2 class="mb-2 font-semibold">Participación por canal</h2>
+    {% if share %}
+      <div class="relative mx-auto h-48 max-w-[16rem]"><canvas id="chart-share" aria-label="Participación de cada canal" role="img"></canvas></div>
+      <ul class="mt-3 space-y-1 text-sm">
+        {% for s in share %}
+          <li class="flex items-center justify-between gap-2"><span class="flex items-center gap-2"><span class="inline-block h-3 w-3 rounded-sm" style="background: {{ s.color }}"></span>{{ s.name }}</span><span class="text-stone-600">{{ s.total|money }} · {{ s.pct|pct }}</span></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="py-10 text-center text-sm text-stone-500">No hay ventas en este período.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="mb-6 rounded-lg border border-stone-200 bg-white p-3">
+  <h2 class="mb-2 font-semibold">Días y horas pico</h2>
+  <p class="mb-2 text-xs text-stone-500">Pedidos por día de la semana y hora en que entraron (hora Argentina). Más oscuro = más pedidos.</p>
+  {% include "reports/_heatmap.html" %}
+</section>
+
+{{ chart_data|json_script:"chart-data" }}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (typeof Chart === "undefined") return;
+  const data = JSON.parse(document.getElementById("chart-data").textContent);
+  const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
+  const days = document.getElementById("chart-days");
+  if (days) {
+    new Chart(days, {
+      type: "bar",
+      data: {
+        labels: data.labels,
+        datasets: data.series.map(s => ({ label: s.name, data: s.values, backgroundColor: s.color, borderRadius: 2 })),
+      },
+      options: {
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          x: { stacked: true, grid: { display: false } },
+          y: { stacked: true, ticks: { callback: v => money.format(v) } },
+        },
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: { callbacks: { label: c => `${c.dataset.label}: ${money.format(c.parsed.y)}` } },
+        },
+      },
+    });
+  }
+  const share = document.getElementById("chart-share");
+  if (share) {
+    new Chart(share, {
+      type: "doughnut",
+      data: {
+        labels: data.share.map(s => s.name),
+        datasets: [{ data: data.share.map(s => s.total), backgroundColor: data.share.map(s => s.color) }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.label}: ${money.format(c.parsed)}` } } },
+      },
+    });
+  }
+});
+</script>
+{% endblock %}

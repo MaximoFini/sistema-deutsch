@@ -40,6 +40,7 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "sales.mark_return_adjusted",
         "fulfillment.view_pickbatch",
         "fulfillment.manage_carriers",
+        "reports.view_reports",
     ],
     DEPOSITO: [
         "alerts.view_alert",
@@ -114,6 +115,7 @@ PERMISSION_LABELS: dict[str, str] = {
     "sales.mark_return_adjusted": "Marcar devoluciones como ajustadas en Contabilium",
     "fulfillment.view_pickbatch": "Ver las tandas de preparación y su hoja de picking",
     "fulfillment.manage_carriers": "Editar la lista de expresos (transportes)",
+    "reports.view_reports": "Ver reportes",
 }
 
 
@@ -135,9 +137,16 @@ def sync_roles(using="default"):
         group.permissions.set(perms)
 
 
+def _last_project_app_label() -> str:
+    from django.apps import apps
+
+    labels = [c.label for c in apps.get_app_configs() if c.name.startswith("apps.")]
+    return labels[-1]
+
+
 def sync_roles_signal(sender, using="default", **kwargs):
-    # La señal llega una vez por app; sincronizamos al final (última app propia de INSTALLED_APPS,
-    # así ya existen los permisos de todas las apps, incluidas las de conversations).
-    if getattr(sender, "label", None) != "conversations":
+    # La señal llega una vez por app, en el orden de INSTALLED_APPS; sincronizamos con la última
+    # app propia (hoy `reports`), así ya existen los permisos de todas las apps en el primer migrate.
+    if getattr(sender, "label", None) != _last_project_app_label():
         return
     sync_roles(using=using)

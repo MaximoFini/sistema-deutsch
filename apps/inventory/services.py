@@ -1,4 +1,8 @@
-"""Único punto de escritura de stock (principio ERP n.º 3): todo cambio deja un movimiento."""
+"""Único punto de escritura de stock (principio ERP n.º 3): todo cambio deja un movimiento.
+
+Todo movimiento que cambia `on_hand` guarda `on_hand_after` (el saldo físico que quedó), que usan los
+reportes de M7. Los de reserva no cambian el físico y lo dejan vacío.
+"""
 
 from decimal import Decimal
 
@@ -30,6 +34,7 @@ def apply_sync_level(variant, warehouse, quantity, source=StockMovement.Source.C
         quantity=delta,
         source=source,
         note=note,
+        on_hand_after=quantity,  # M7: saldo físico después del movimiento ("se agota seguido")
     )
     level.on_hand = quantity
     level.save(update_fields=["on_hand", "updated_at"])

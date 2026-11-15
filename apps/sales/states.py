@@ -136,7 +136,17 @@ def change_status(
             doc.status_before_claim = current
         doc.status = to
         doc.status_changed_at = timezone.now()
-        doc.save(update_fields=["status", "status_before_claim", "status_changed_at", "updated_at"])
+        _stamp_moments(doc, to, system)
+        doc.save(
+            update_fields=[
+                "status",
+                "status_before_claim",
+                "status_changed_at",
+                "ready_at",
+                "dispatched_at",
+                "updated_at",
+            ]
+        )
         audit.record(
             None if system else user,
             "order.status_changed",
@@ -170,6 +180,34 @@ def change_status(
             )
         )
     return True
+
+
+def _stamp_moments(doc: SalesDocument, to: str, system: bool) -> None:
+    """M7: cuándo quedó listo para preparar y cuándo salió (solo la primera vez)."""
+    now = doc.status_changed_at
+    if to == NEW and doc.ready_at is None:
+        doc.ready_at = now
+    if doc.dispatched_at is not None or to not in (DISPATCHED, READY_FOR_PICKUP, DELIVERED):
+        return
+    # Si el canal informa cuándo salió el paquete (p. ej. un pedido viejo que se importa ya
+    # despachado), vale esa fecha; si lo marca una persona, es ahora.
+    shipped = (
+        doc.shipments.filter(shipped_at__isnull=False, shipped_at__lte=now)
+        .order_by("shipped_at")
+        .values_list("shipped_at", flat=True)
+        .first()
+    )
+    if to == DELIVERED:
+        doc.dispatched_at = shipped  # sin dato del envío no se inventa la fecha de despacho
+    else:
+        doc.dispatched_at = shipped if (system and shipped) else now
+
+
+def mark_ready_on_create(doc: SalesDocument) -> None:
+    """Un pedido que entra ya pagado (Nuevo) está listo para preparar desde que se creó."""
+    if doc.ready_at is None and doc.status != AWAITING_PAYMENT:
+        doc.ready_at = doc.issued_at
+        SalesDocument.objects.filter(pk=doc.pk, ready_at__isnull=True).update(ready_at=doc.issued_at)
 
 
 def _tn_effect(doc, action, user, tracking_code, tracking_url):

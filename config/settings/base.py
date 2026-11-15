@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "apps.fulfillment",
     "apps.integrations",
     "apps.conversations",
+    "apps.reports",
 ]
 
 MIDDLEWARE = [
@@ -174,6 +175,12 @@ SENDER_PHONE = env("SENDER_PHONE", default="")
 # Enlace al pedido en el admin de Tiendanube; {id} = id del pedido en TN. Vacía: solo el texto.
 TN_ADMIN_ORDER_URL = env("TN_ADMIN_ORDER_URL", default="")
 FULFILLMENT_MAX_BATCH = env.int("FULFILLMENT_MAX_BATCH", default=60)
+
+# ── Reportes (M7) ──
+# Veces que una variante tiene que quedar en 0 en el período para figurar en "Se agotan seguido".
+REPORTS_STOCKOUT_MIN_TIMES = env.int("REPORTS_STOCKOUT_MIN_TIMES", default=2)
+# Ventas de ML por tanda al completar comisiones y costos de envío (la API se respeta con el límite de M0).
+REPORTS_ML_FEES_BATCH = env.int("REPORTS_ML_FEES_BATCH", default=50)
 
 SENTRY_DSN = env("SENTRY_DSN", default="")
 ENVIRONMENT_NAME = env("ENVIRONMENT_NAME", default="local")

@@ -43,6 +43,11 @@ class SalesDocument(TimeStampedModel):
     )
     notes = models.TextField("observaciones", blank=True)
     fiscal = models.JSONField("datos fiscales", null=True, blank=True)  # futuro: PV, tipo cbte, CAE, vto.
+    # M7 · reportes: momentos del pedido (los fija `states.change_status`, la primera vez).
+    ready_at = models.DateTimeField("listo para preparar", null=True, blank=True, db_index=True)
+    dispatched_at = models.DateTimeField("despachado", null=True, blank=True, db_index=True)
+    # Venta de ML a la que le falta la comisión o el costo de envío del vendedor (no se puede calcular el neto).
+    net_pending = models.BooleanField("neto pendiente", default=False)
 
     class Meta:
         verbose_name = "documento de venta"
@@ -86,6 +91,10 @@ class SalesLine(models.Model):
     discount = money_field("descuento")
     vat_rate = models.DecimalField("alícuota IVA %", max_digits=5, decimal_places=2, default=21)
     line_total = money_field("total línea")
+    # M7: comisión del canal para toda la línea (ML: sale_fee × cantidad). Vacía = sin comisión informada.
+    channel_fee = models.DecimalField(
+        "comisión del canal", max_digits=14, decimal_places=2, null=True, blank=True
+    )
     condition = models.CharField(
         "estado de la mercadería",
         max_length=12,
@@ -161,6 +170,10 @@ class Shipment(TimeStampedModel):
     packages = models.PositiveSmallIntegerField("bultos", null=True, blank=True)  # rótulo de transporte
     label_printed_at = models.DateTimeField("etiqueta impresa", null=True, blank=True)
     label_print_count = models.PositiveSmallIntegerField("veces impresa", default=0)
+    # M7: costo del envío que paga el vendedor (ML: /shipments/{id}/costs → senders[].cost).
+    seller_cost = models.DecimalField(
+        "costo de envío del vendedor", max_digits=14, decimal_places=2, null=True, blank=True
+    )
 
     class Meta:
         verbose_name = "envío"

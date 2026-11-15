@@ -1,0 +1,86 @@
+{% extends "reports/_layout.html" %}
+{% load reports %}
+{% block report_title %}Productos{% endblock %}
+{% block report %}
+<div class="mb-3 flex flex-wrap items-center gap-2 text-sm">
+  <span class="text-stone-600">Más vendidos por:</span>
+  <a href="{{ by_urls.unidades }}" class="rounded-full border px-2.5 py-1 text-xs {% if top.by == 'unidades' %}border-stone-900 bg-stone-900 text-white{% else %}border-stone-300 bg-white{% endif %}">Unidades</a>
+  <a href="{{ by_urls.bruto }}" class="rounded-full border px-2.5 py-1 text-xs {% if top.by == 'bruto' %}border-stone-900 bg-stone-900 text-white{% else %}border-stone-300 bg-white{% endif %}">Bruto</a>
+  <span class="text-xs text-stone-500">Stock disponible actual del depósito.</span>
+</div>
+
+<div class="mb-6 grid gap-4 lg:grid-cols-2">
+  <section class="rounded-lg border border-stone-200 bg-white">
+    <h2 class="px-3 pt-3 font-semibold">Los 50 productos más vendidos</h2>
+    <div class="overflow-x-auto p-3">
+    <table class="w-full min-w-[420px] text-sm">
+      <thead class="text-left text-stone-500"><tr><th class="py-1 pr-2">#</th><th class="py-1 pr-2">Producto</th><th class="py-1 pr-2 text-right">Unidades</th><th class="py-1 pr-2 text-right">Bruto</th><th class="py-1 text-right">Stock</th></tr></thead>
+      <tbody>
+      {% for r in top.products %}
+        <tr class="border-t border-stone-100 {% if r.unlinked %}bg-amber-50{% endif %}"><td class="py-1 pr-2 text-stone-400">{{ forloop.counter }}</td><td class="py-1 pr-2">{{ r.clave|truncatechars:60 }}</td><td class="py-1 pr-2 text-right">{{ r.unidades|num }}</td><td class="py-1 pr-2 text-right">{{ r.bruto|money }}</td><td class="py-1 text-right">{{ r.stock|num }}</td></tr>
+      {% empty %}
+        <tr><td colspan="5" class="py-6 text-center text-stone-500">No hay ventas en este período.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+  <section class="rounded-lg border border-stone-200 bg-white">
+    <h2 class="px-3 pt-3 font-semibold">Las 50 variantes más vendidas</h2>
+    <div class="overflow-x-auto p-3">
+    <table class="w-full min-w-[480px] text-sm">
+      <thead class="text-left text-stone-500"><tr><th class="py-1 pr-2">#</th><th class="py-1 pr-2">SKU</th><th class="py-1 pr-2">Talle / color</th><th class="py-1 pr-2 text-right">Unidades</th><th class="py-1 pr-2 text-right">Bruto</th><th class="py-1 text-right">Stock</th></tr></thead>
+      <tbody>
+      {% for r in top.variants %}
+        <tr class="border-t border-stone-100 {% if r.unlinked %}bg-amber-50{% endif %}">
+          <td class="py-1 pr-2 text-stone-400">{{ forloop.counter }}</td>
+          <td class="py-1 pr-2"><span class="font-mono">{{ r.clave }}</span>{% if r.producto %}<span class="block text-xs text-stone-500">{{ r.producto|truncatechars:45 }}</span>{% endif %}</td>
+          <td class="py-1 pr-2">{% if r.talle or r.color %}{{ r.talle|default:"—" }} / {{ r.color|default:"—" }}{% else %}—{% endif %}</td>
+          <td class="py-1 pr-2 text-right">{{ r.unidades|num }}</td><td class="py-1 pr-2 text-right">{{ r.bruto|money }}</td><td class="py-1 text-right">{{ r.stock|num }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="py-6 text-center text-stone-500">No hay ventas en este período.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+</div>
+
+<section class="rounded-lg border border-stone-200 bg-white">
+  <div class="flex flex-wrap items-end justify-between gap-3 px-3 pt-3">
+    <div>
+      <h2 class="font-semibold">Se agotan seguido</h2>
+      <p class="text-xs text-stone-500">Variantes que quedaron sin stock en el depósito al menos {{ min_times }} vez{{ min_times|pluralize:",ces" }} en el período.</p>
+    </div>
+    <form method="get" class="flex items-end gap-2 text-sm">
+      {% for key, value in f.params.items %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+      <input type="hidden" name="por" value="{{ top.by }}">
+      <label class="flex flex-col gap-1 text-xs">Mínimo de veces<input type="number" name="veces" min="1" max="99" value="{{ min_times }}" class="w-20 rounded border border-stone-300 px-2 py-1 text-sm"></label>
+      <button class="rounded border border-stone-300 px-3 py-1">Aplicar</button>
+    </form>
+  </div>
+  {% if out.history_since is None %}
+    <p class="px-3 py-6 text-center text-sm text-stone-500">Todavía no hay historial de stock para calcularlo.</p>
+  {% else %}
+    {% if history_late %}<p class="mx-3 mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">Hay historial de stock desde el {{ out.history_since|date:"d/m/Y" }}: antes de esa fecha no se puede saber si algo se agotó.</p>{% endif %}
+    <div class="overflow-x-auto p-3">
+    <table class="w-full min-w-[640px] text-sm">
+      <thead class="text-left text-stone-500"><tr><th class="py-1 pr-2">SKU</th><th class="py-1 pr-2">Producto</th><th class="py-1 pr-2 text-right">Veces sin stock</th><th class="py-1 pr-2 text-right">Días sin stock</th><th class="py-1 pr-2 text-right">Vendidas</th><th class="py-1 text-right">Stock hoy</th></tr></thead>
+      <tbody>
+      {% for r in out.rows %}
+        <tr class="border-t border-stone-100">
+          <td class="py-1 pr-2 font-mono">{{ r.sku }}</td>
+          <td class="py-1 pr-2">{{ r.producto|truncatechars:50 }}{% if r.atributos %} <span class="text-xs text-stone-500">({{ r.atributos }})</span>{% endif %}</td>
+          <td class="py-1 pr-2 text-right">{{ r.veces }}</td><td class="py-1 pr-2 text-right">{{ r.dias_sin_stock|num }}</td><td class="py-1 pr-2 text-right">{{ r.vendidas|num }}</td>
+          <td class="py-1 text-right {% if r.stock is not None and r.stock <= 0 %}font-semibold text-red-700{% endif %}">{{ r.stock|num }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="py-6 text-center text-stone-500">Ninguna variante se agotó {{ min_times }} vez{{ min_times|pluralize:",ces" }} o más en este período.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

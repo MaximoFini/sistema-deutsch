@@ -106,6 +106,8 @@ def on_document_created(doc: SalesDocument, *, notify: bool = True) -> None:
     envío llega después: un pedido Full no se prepara); en ese caso llamar a `after_created_complete`.
     """
     sync_internal_status(doc, created=True)
+    doc.refresh_from_db(fields=["status", "ready_at", "issued_at"])
+    states.mark_ready_on_create(doc)
     if notify:
         after_created_complete(doc)
 

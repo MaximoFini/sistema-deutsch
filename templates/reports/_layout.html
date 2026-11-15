@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{% block report_title %}Reportes{% endblock %} · Reportes{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+  <div>
+    <h1 class="text-xl font-semibold">Reportes</h1>
+    <p class="text-sm text-stone-600">{{ f.label }} · {{ f.channel_label }}. Los montos son los que informa cada canal (no los de Contabilium).</p>
+  </div>
+  {% if excel_url_name %}<a href="{% url excel_url_name %}?{{ querystring }}" class="rounded border border-stone-300 bg-white px-3 py-1.5 text-sm">Exportar a Excel</a>{% endif %}
+</div>
+
+<nav class="mb-4 flex gap-1 overflow-x-auto border-b border-stone-200 text-sm">
+  {% for name, label in tabs %}
+    <a href="{% url name %}?{{ filter_qs }}" class="whitespace-nowrap px-3 py-2 {% if name == tab %}border-b-2 border-stone-900 font-semibold{% else %}text-stone-600 hover:text-stone-900{% endif %}">{{ label }}</a>
+  {% endfor %}
+</nav>
+
+<form method="get" class="mb-4 grid grid-cols-2 gap-2 rounded-lg border border-stone-200 bg-white p-3 text-sm md:flex md:flex-wrap md:items-end">
+  <label class="col-span-2 flex flex-col gap-1 md:col-span-1">Período
+    <select name="periodo" class="rounded border border-stone-300 px-2 py-1.5" onchange="this.form.querySelectorAll('[data-range]').forEach(e => e.classList.toggle('hidden', this.value !== 'rango'))">
+      {% for key, label in presets.items %}<option value="{{ key }}" {% if key == f.preset %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  <label data-range class="flex flex-col gap-1 {% if f.preset != 'rango' %}hidden{% endif %}">Desde
+    <input type="date" name="desde" value="{{ f.start|date:'Y-m-d' }}" class="rounded border border-stone-300 px-2 py-1">
+  </label>
+  <label data-range class="flex flex-col gap-1 {% if f.preset != 'rango' %}hidden{% endif %}">Hasta
+    <input type="date" name="hasta" value="{{ f.end|date:'Y-m-d' }}" class="rounded border border-stone-300 px-2 py-1">
+  </label>
+  <label class="col-span-2 flex flex-col gap-1 md:col-span-1">Canal
+    <select name="canal" class="rounded border border-stone-300 px-2 py-1.5">
+      {% for key, label in channels.items %}<option value="{{ key }}" {% if key == f.channel %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  {% for key, value in extra_hidden.items %}{% if key != "orden" %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
+  <button class="col-span-2 rounded bg-stone-900 px-4 py-1.5 text-white md:col-span-1">Ver</button>
+</form>
+
+{% for w in f.warnings %}
+  <div class="mb-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ w }}</div>
+{% endfor %}
+
+{% block report %}{% endblock %}
+{% endblock %}
