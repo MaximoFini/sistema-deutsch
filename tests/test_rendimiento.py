@@ -610,6 +610,14 @@ def _store_volume():
             for i, v in enumerate(variants)
         ]
     )
+    # Estadísticas al día, como en producción (autovacuum): con las de tablas casi vacías el planificador
+    # elige nested loops y una página tardó 408 s (mismo problema que el test de reportes).
+    from django.db import connection
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "ANALYZE catalog_product, catalog_variant, pricing_pricelistitem, inventory_stocklevel"
+        )
 
 
 def test_store_catalog_1000_products_under_1s(db, admin_user, django_assert_max_num_queries):

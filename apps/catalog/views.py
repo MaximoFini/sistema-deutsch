@@ -227,6 +227,9 @@ class ContabiliumDecisionView(PanelPermissionRequiredMixin, View):
             return redirect("catalog:contabilium")
         try:
             stats = contabilium_import.apply_import(imp, user=request.user, request=request)
+            from apps.core.db import refresh_statistics
+
+            refresh_statistics()  # carga grande: estadísticas al día
         except contabilium_import.ImportNotApplicable as exc:
             messages.error(request, str(exc))
             return redirect("catalog:contabilium_preview", pk=pk)

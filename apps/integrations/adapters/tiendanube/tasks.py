@@ -23,6 +23,9 @@ def tn_import_catalog():
         return
     client = TiendanubeClient.from_credentials()
     services.run_reconciliation(CHANNEL, job="catalog_full", fn=lambda since: catalog.import_all(client))
+    from apps.core.db import refresh_statistics
+
+    refresh_statistics()  # carga grande: estadísticas al día para que las consultas no se planeen mal
 
 
 @app.task(queue="integrations", queueing_lock="tn_import_orders")
