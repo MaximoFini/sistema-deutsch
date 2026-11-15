@@ -105,7 +105,7 @@ Prefijo `/reportes/`, todas con `reports.view_reports`:
 | `/reportes/ventas/` | Tabla agrupable (selector "Agrupar por"), columnas ordenables, totales al pie, paginada de a 100. |
 | `/reportes/productos/` | Más vendidos (productos y variantes, por unidades o por bruto) y "Se agotan seguido". |
 | `/reportes/operacion/` | Tiempos de respuesta (general y por persona), tiempos de despacho (por canal y envío), Flex/Colecta a tiempo y lista de tardíos, manuales pendientes. |
-| `…/excel/` en cada una | El Excel de lo que se ve, con los mismos filtros, generado con openpyxl en modo `write_only` (rápido para muchas filas). |
+| `…/excel/` en cada una | El Excel de lo que se ve, con los mismos filtros, generado con XlsxWriter en modo `constant_memory` (rápido para muchas filas). |
 
 - Los filtros viajan en la URL, así un reporte se puede guardar como favorito o compartir.
 - **Chart.js 4.4.x** desde cdnjs, con los datos inyectados con `json_script`. Paleta accesible y consistente por canal: Tiendanube, Mercado Libre y manual siempre del mismo color.
@@ -155,7 +155,7 @@ Ninguno de estos cambios escribe en un canal.
 
 Decisiones tomadas al implementar T1–T9 (2026-11-15), donde el diseño no alcanzaba o no era viable tal cual:
 
-1. **Excel sin openpyxl.** openpyxl en modo `write_only` tardó 12–14 s para 50.000 filas en la máquina de desarrollo (9,5 s con `lxml`), y el requisito es < 10 s. Sumar una dependencia (lxml o XlsxWriter) quedó para decidir aparte. `apps/reports/excel.py` escribe el .xlsx directamente (zip + XML mínimo: encabezado en negrita, formato de pesos, fechas y paneles congelados): 50.000 filas en ≈ 1,5 s. Los tests lo leen de vuelta con openpyxl.
+1. **Excel con XlsxWriter, no openpyxl.** openpyxl en modo `write_only` tardó 12–14 s para 50.000 filas (requisito < 10 s). Primero se escribió un generador propio; el 2026-11-15 se decidió usar XlsxWriter (`constant_memory`), que garantiza compatibilidad con Excel: 50.000 filas en ≈ 3,5 s. Los tests lo leen de vuelta con openpyxl.
 2. **Índice `(doc_type, status, issued_at)`:** no se agregó. Se reusa `salesdoc_type_issued_idx (doc_type, -issued_at)`, que alcanza: con 10.000 pedidos cada pantalla tarda menos de 0,9 s. Sí se agregaron `StockMovement (variant, created_at)`, `Question (answered_at)` y los índices de `ready_at` / `dispatched_at`.
 3. **Bruto por línea sin prorrateo.** Las tablas por producto, variante, talle y color suman `line_total` (sin envío ni prorrateo), y el neto ahí descuenta solo la comisión. Las agrupaciones por canal y por tiempo usan el total del pedido, y su neto descuenta también el costo de envío del vendedor, así coinciden con el resumen.
 4. **"Sin vincular (SKU)"** se usa en producto, variante, talle y color, una fila por SKU del canal. Una variante sin la clave queda en "Sin talle" / "Sin color". Las claves de atributos se leen sin importar mayúsculas (`Talle` / `talle`), porque Tiendanube las guarda con mayúscula.
