@@ -35,6 +35,8 @@ class Question(TimeStampedModel):
     answered_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)
     answer_error = models.CharField("error al responder", max_length=255, blank=True)
     draft_answer = models.TextField("borrador", blank=True)
+    # Cuándo entró en el aviso de "pregunta sin responder hace mucho" (solo o en un resumen): no se repite.
+    alerted_at = models.DateTimeField("avisada", null=True, blank=True)
 
     class Meta:
         verbose_name = "pregunta"

@@ -16,6 +16,7 @@ from django.db.models import Exists, F, OuterRef, Prefetch, QuerySet
 from django.utils import timezone
 
 from apps.audit import services as audit
+from apps.catalog.attributes import ATTRIBUTE_ORDER, attributes_text  # noqa: F401 — ATTRIBUTE_ORDER se reexporta
 from apps.sales import states
 from apps.sales.models import SalesDocument, SalesLine, Shipment
 from apps.sales.views import orders_queryset
@@ -207,21 +208,9 @@ def batch_orders(batch: PickBatch, *, include_cancelled: bool = False) -> list[S
     return list(qs)
 
 
-ATTRIBUTE_ORDER = ("talle", "color")  # Postgres (jsonb) no conserva el orden de las claves
-
-
 def variant_description(variant) -> str:
     """Producto, talle y color: "Buzo Canguro (M / Negro)"."""
-    items = sorted(
-        (variant.attributes or {}).items(),
-        key=lambda kv: (
-            ATTRIBUTE_ORDER.index(kv[0].lower())
-            if kv[0].lower() in ATTRIBUTE_ORDER
-            else len(ATTRIBUTE_ORDER),
-            kv[0].lower(),
-        ),
-    )
-    attrs = " / ".join(str(v) for _, v in items if v)
+    attrs = attributes_text(variant.attributes)
     return variant.product.name + (f" ({attrs})" if attrs else "")
 
 

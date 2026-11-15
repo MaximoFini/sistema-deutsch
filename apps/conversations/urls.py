@@ -7,6 +7,7 @@ urlpatterns = [
     path("preguntas/", views.QuestionListView.as_view(), name="questions"),
     path("preguntas/respondidas/", views.AnsweredQuestionListView.as_view(), name="questions_answered"),
     path("preguntas/<int:pk>/", views.QuestionDetailView.as_view(), name="question_detail"),
+    path("preguntas/<int:pk>/talles/", views.QuestionSizeChartView.as_view(), name="question_size_chart"),
     path("respuestas-guardadas/", views.SavedReplyListView.as_view(), name="saved_replies"),
     path("respuestas-guardadas/<int:pk>/", views.SavedReplyEditView.as_view(), name="saved_reply_edit"),
     path("mensajes/", views.ThreadListView.as_view(), name="threads"),

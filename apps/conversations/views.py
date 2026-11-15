@@ -22,11 +22,16 @@ from apps.accounts.mixins import PanelLoginRequiredMixin, PanelPermissionRequire
 from apps.audit import services as audit
 from apps.integrations.errors import friendly
 
-from . import health, inbox
-from .models import Claim, Question, SavedReply
+from . import health, inbox, labels
+from .models import Claim, Message, Question, SavedReply
 
 logger = logging.getLogger(__name__)
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+ALREADY_ANSWERED = (
+    "Esta pregunta ya estaba respondida, así que no se volvió a enviar. La respuesta está arriba."
+)
+ALREADY_SENT = "Ese mensaje ya se envió hace un momento. No se volvió a mandar."
+DUPLICATE_WINDOW = timedelta(minutes=2)
 DISCONNECTED = "Mercado Libre está desconectado: las respuestas no se pueden enviar. Hay que reconectarlo desde Integraciones."
 QUESTION_MAX = 2000
 CLOSED_CLAIM_DAYS = 90
@@ -42,6 +47,19 @@ def _ml_client():
     from apps.integrations.adapters.mercadolibre.client import MLClient
 
     return MLClient()
+
+
+def _messaging_blocked_text(exc) -> str:
+    """Motivo en castellano cuando ML bloquea un mensaje (auditoría M6, A5). El texto original de ML va
+    al log. Los bloqueos propios de M2 (vacío, muy largo, sin conversación) ya están en castellano."""
+    from apps.integrations.adapters.mercadolibre.common import error_body
+
+    cause = exc.__cause__
+    if cause is None:
+        return str(exc)
+    body = error_body(cause)
+    logger.warning("ML bloqueó un mensaje: %s | %s", exc, body)
+    return labels.message_block_reason(body)
 
 
 def _rejection_message(exc) -> str:
@@ -136,6 +154,9 @@ class QuestionDetailView(PanelPermissionRequiredMixin, View):
 
         question = get_object_or_404(Question.objects.select_related("listing", "answered_by"), pk=pk)
         text = (request.POST.get("text") or "").strip()
+        if question.status == Question.Status.ANSWERED:
+            # Doble clic o reenvío del formulario: ML rechazaría la segunda respuesta con un error confuso.
+            return self._render(request, question, text=text, error=ALREADY_ANSWERED)
         if len(text) > QUESTION_MAX:
             return self._render(
                 request,
@@ -169,6 +190,20 @@ class QuestionDetailView(PanelPermissionRequiredMixin, View):
         if following is not None:
             return redirect("ml:question_detail", pk=following.pk)
         return redirect("ml:questions")
+
+
+class QuestionSizeChartView(PanelPermissionRequiredMixin, View):
+    """Fragmento HTMX con la guía de talles (auditoría M6, A4). Se pide a ML con un cliente rápido
+    (4 s, sin reintentos): si ML no responde se muestra la del caché o nada, sin colgar la ficha."""
+
+    permission_required = "conversations.view_question"
+
+    def get(self, request, pk):
+        from apps.integrations.adapters.mercadolibre.client import MLClient
+
+        question = get_object_or_404(Question.objects.select_related("listing"), pk=pk)
+        chart = health.size_chart(question.listing, client=MLClient.quick())
+        return render(request, "conversations/_size_chart.html", {"chart": chart})
 
 
 # ── Respuestas guardadas ─────────────────────────────────────────────────
@@ -263,10 +298,15 @@ class ThreadListView(PanelPermissionRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         only_unread = bool(self.request.GET.get("sin_leer"))
-        page = Paginator(inbox.threads_queryset(only_unread=only_unread), self.paginate_by).get_page(
-            self.request.GET.get("page")
-        )
+        show_old = bool(self.request.GET.get("viejas"))
+        since = None if show_old else inbox.recent_threads_since()
+        page = Paginator(
+            inbox.threads_queryset(only_unread=only_unread, since=since), self.paginate_by
+        ).get_page(self.request.GET.get("page"))
         return {
+            "show_old": show_old,
+            "recent_days": inbox.RECENT_THREAD_DAYS,
+            "older_exist": since is not None and not only_unread and inbox.older_threads_exist(since),
             "threads": inbox.thread_rows(page.object_list),
             "page_obj": page,
             "paginator": page.paginator,
@@ -305,6 +345,15 @@ class ThreadDetailView(PanelPermissionRequiredMixin, View):
             status=status,
         )
 
+    @staticmethod
+    def _just_sent(thread_key, text) -> bool:
+        return Message.objects.filter(
+            thread_key=thread_key,
+            direction=Message.Direction.OUT,
+            text=text,
+            sent_at__gte=timezone.now() - DUPLICATE_WINDOW,
+        ).exists()
+
     def _load(self, thread_key):
         document, msgs = inbox.thread(thread_key)
         if not msgs:
@@ -333,10 +382,14 @@ class ThreadDetailView(PanelPermissionRequiredMixin, View):
             return self._render(request, thread_key, document, msgs, text=text, error=error)
         if not inbox.ml_connected():
             return self._render(request, thread_key, document, msgs, text=text, error=DISCONNECTED)
+        if text and self._just_sent(thread_key, text):
+            # Doble clic o reenvío del formulario: ML no lo frena y el comprador recibiría dos mensajes.
+            return self._render(request, thread_key, document, msgs, error=ALREADY_SENT)
         try:
             ml_messages.send(_ml_client(), document, text, user=request.user)
         except ml_messages.MessagingBlocked as exc:
-            return self._render(request, thread_key, document, msgs, text=text, error=str(exc))
+            error = _messaging_blocked_text(exc)
+            return self._render(request, thread_key, document, msgs, text=text, error=error)
         except PermissionDenied:
             raise
         except Exception as exc:  # noqa: BLE001

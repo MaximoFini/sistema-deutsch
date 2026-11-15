@@ -13,7 +13,7 @@
   <div class="rounded-lg border border-stone-200 bg-white p-3 text-sm">
     <p class="text-xs text-stone-500"><a href="{% url 'ml:question_detail' q.pk %}" class="underline">{{ q.listing.title|default:q.item_external_id }}</a></p>
     <p class="mt-1 font-medium">{{ q.text }}</p>
-    <p class="mt-1 rounded bg-stone-50 p-2">{{ q.answer_text }}</p>
+    {% if q.answer_text %}<p class="mt-1 rounded bg-stone-50 p-2">{{ q.answer_text }}</p>{% else %}<p class="mt-1 rounded bg-stone-50 p-2 italic text-stone-600">Respondida desde Mercado Libre (el texto llega en la próxima sincronización).</p>{% endif %}
     <p class="mt-1 text-xs text-stone-500">Respondida {{ q.answered_at|date:"d/m/Y H:i"|default:"—" }} · {% if q.answered_by %}por {{ q.answered_by.get_short_name }} desde el sistema{% else %}desde Mercado Libre{% endif %}</p>
   </div>
   {% empty %}

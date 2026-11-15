@@ -39,7 +39,7 @@ BUDGET = {
     # M6 · operación de Mercado Libre
     "ml:questions": 11,  # medido: 8 (200 preguntas)
     "ml:question_detail": 14,  # medido: 11 (variaciones, stock y anteriores)
-    "ml:threads": 12,  # medido: 9 (100 conversaciones)
+    "ml:threads": 14,  # medido: 12 (100 conversaciones; R1: último mensaje, pedidos y «Ver más viejas»)
     "ml:claims": 10,  # medido: 7
     "ml:health": 10,  # medido: 7 (100 publicaciones con problemas)
     "ml:counters": 11,  # medido: 8 (3 contadores)
@@ -235,3 +235,89 @@ def test_query_budget(admin_client, volume, django_assert_max_num_queries, name)
     with django_assert_max_num_queries(BUDGET[name]):
         response = admin_client.get(url)
     assert response.status_code == 200
+
+
+# ── Auditoría M6 · R2 ────────────────────────────────────────────────────
+
+THREADS = 1500  # 4 mensajes cada una; la mitad sin actividad en los últimos 60 días
+
+
+def _many_threads(now):
+    from apps.conversations.models import Message
+
+    ml = Channel.objects.get(code="mercadolibre")
+    docs = SalesDocument.objects.bulk_create(
+        [
+            SalesDocument(
+                doc_type=SalesDocument.DocType.ORDER, channel=ml, number=700000 + i, total=1, issued_at=now
+            )
+            for i in range(THREADS)
+        ]
+    )
+    Message.objects.bulk_create(
+        [
+            Message(
+                channel=ml,
+                external_id=f"t{i}-{k}",
+                document=d,
+                thread_key=f"th{i}",
+                direction="in" if k % 2 == 0 else "out",
+                text=f"Mensaje {k} de {i}",
+                sent_at=now - timedelta(days=(i % 120), minutes=k),
+                read_at=None if (i % 50 == 0 and k == 0) else now,
+            )
+            for i, d in enumerate(docs)
+            for k in range(4)
+        ]
+    )
+
+
+@pytest.mark.parametrize("query", ["", "?viejas=1", "?sin_leer=1", "?page=3"])
+def test_threads_many_conversations(admin_client, django_assert_max_num_queries, query):
+    """La lista de mensajes calcula el último texto solo para la página (no para las 1.500)."""
+    _many_threads(timezone.now())
+    url = reverse("ml:threads") + query
+    assert admin_client.get(url).status_code == 200
+    with django_assert_max_num_queries(14):  # medido: 12 por defecto, 11 con «viejas» o «sin leer»
+        response = admin_client.get(url)
+    assert response.status_code == 200 and len(response.context["threads"]) <= 50
+    if not query:
+        assert response.context["older_exist"]
+
+
+def test_alert_task_second_run_is_cheap(db, django_assert_max_num_queries):
+    """La tarea de avisos (cada 5 min) no recorre otra vez lo ya avisado ni las preguntas viejas."""
+    from apps.conversations import tasks
+    from apps.conversations.models import Claim, Question
+
+    ml = Channel.objects.get(code="mercadolibre")
+    now = timezone.now()
+    Question.objects.bulk_create(
+        [
+            Question(
+                channel=ml,
+                external_id=f"aq{i}",
+                text=f"Pregunta {i}",
+                asked_at=now - timedelta(hours=13 + i % 200),  # la mitad de hace más de 3 días
+                status="unanswered",
+            )
+            for i in range(1000)
+        ]
+    )
+    Claim.objects.bulk_create(
+        [
+            Claim(
+                channel=ml,
+                external_id=f"ac{i}",
+                status="opened",
+                action_required=True,
+                due_date=now + timedelta(hours=1 + i % 30),
+            )
+            for i in range(40)
+        ]
+    )
+    assert tasks.check_questions(now=now) == 1  # un solo resumen, no cientos de avisos
+    tasks.check_claims_due(now=now)
+    with django_assert_max_num_queries(2):
+        assert tasks.check_questions(now=now + timedelta(minutes=5)) == 0
+        assert tasks.check_claims_due(now=now + timedelta(minutes=5)) == 0

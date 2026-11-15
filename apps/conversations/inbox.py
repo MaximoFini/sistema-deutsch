@@ -5,9 +5,10 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 
 from django.conf import settings
-from django.db.models import Case, Count, F, IntegerField, Max, OuterRef, Q, QuerySet, Subquery, Value, When
+from django.db.models import Case, Count, F, IntegerField, Max, Q, QuerySet, Value, When
 from django.utils import timezone
 
+from apps.catalog.attributes import attributes_text
 from apps.catalog.models import Listing
 from apps.integrations.models import ChannelCredential
 from apps.inventory.models import StockLevel
@@ -71,6 +72,7 @@ class QuestionContext:
     listing: Listing | None
     variations: list[VariationRow] = field(default_factory=list)
     size_chart: dict | None = None
+    size_chart_pending: bool = False  # hay guía pero el caché venció: se carga aparte (HTMX)
     previous: list[Question] = field(default_factory=list)
 
     @property
@@ -79,7 +81,9 @@ class QuestionContext:
         return pictures[0] if pictures else ""
 
 
-def question_context(question: Question, client=None) -> QuestionContext:
+def question_context(question: Question) -> QuestionContext:
+    """Contexto de la ficha de una pregunta. Solo lee la base: la guía de talles vencida se pide a ML
+    después, desde el fragmento `ml:question_size_chart`."""
     listing = question.listing
     ctx = QuestionContext(listing=listing)
     if listing is not None:
@@ -90,11 +94,11 @@ def question_context(question: Question, client=None) -> QuestionContext:
             for s in StockLevel.objects.filter(variant_id__in=variant_ids, warehouse__is_default=True)
         }
         for v in variations:
-            label = " / ".join(str(x) for x in (v.attributes or {}).values() if x) or "Única"
+            label = attributes_text(v.attributes) or "Única"  # talle primero, como en M5
             ctx.variations.append(
                 VariationRow(label, v.sku, v.available_quantity, v.variant, stock.get(v.variant_id))
             )
-        ctx.size_chart = health.size_chart(listing, client=client)
+        ctx.size_chart, ctx.size_chart_pending = health.cached_size_chart(listing)
     prev = Question.objects.filter(status=Question.Status.ANSWERED).exclude(pk=question.pk)
     if listing is not None:
         prev = prev.filter(listing=listing)
@@ -134,23 +138,25 @@ class ThreadRow:
 UNREAD = Q(direction=Message.Direction.IN, read_at__isnull=True)
 
 
-def threads_queryset(*, only_unread: bool = False):
-    """Una fila por conversación (pack u orden) con sus agregados. Con no leídos primero."""
-    last = Message.objects.filter(thread_key=OuterRef("thread_key")).order_by(
-        F("sent_at").desc(nulls_last=True), "-id"
-    )
-    with_doc = last.filter(document__isnull=False)
+RECENT_THREAD_DAYS = 60
+
+
+def recent_threads_since(now=None):
+    """Por defecto la lista muestra las conversaciones con actividad desde este momento (más las no leídas)."""
+    return (now or timezone.now()) - timedelta(days=RECENT_THREAD_DAYS)
+
+
+def threads_queryset(*, only_unread: bool = False, since=None):
+    """Una fila por conversación (pack u orden) con sus agregados. Con no leídos primero.
+
+    Con `since`, solo las que tuvieron actividad desde esa fecha o tienen mensajes sin leer (las no
+    leídas se ven siempre). El último texto y el pedido NO se calculan acá: los agrega `thread_rows`
+    solo para las filas de la página (auditoría M6, R1: antes se calculaban para todas).
+    """
     qs = (
         Message.objects.exclude(thread_key="")
         .values("thread_key")
-        .annotate(
-            last_sent=Max("sent_at"),
-            unread=Count("id", filter=UNREAD),
-            total=Count("id"),
-            last_text=Subquery(last.values("text")[:1]),
-            last_direction=Subquery(last.values("direction")[:1]),
-            document_id=Subquery(with_doc.values("document_id")[:1]),
-        )
+        .annotate(last_sent=Max("sent_at"), unread=Count("id", filter=UNREAD), total=Count("id"))
         .annotate(
             has_unread=Case(When(unread__gt=0, then=Value(0)), default=Value(1), output_field=IntegerField())
         )
@@ -158,30 +164,61 @@ def threads_queryset(*, only_unread: bool = False):
     )
     if only_unread:
         qs = qs.filter(unread__gt=0)
+    elif since is not None:
+        qs = qs.filter(Q(last_sent__gte=since) | Q(unread__gt=0))
     return qs
 
 
+def older_threads_exist(since) -> bool:
+    """¿Hay conversaciones leídas sin actividad desde `since`? (para mostrar "Ver más viejas")."""
+    return threads_queryset().filter(Q(last_sent__lt=since) | Q(last_sent__isnull=True), unread=0).exists()
+
+
 def thread_rows(values) -> list[ThreadRow]:
-    """Convierte filas de `threads_queryset` en ThreadRow con su pedido (una sola consulta)."""
+    """Convierte filas de `threads_queryset` en ThreadRow con último mensaje y pedido.
+
+    Tres consultas fijas para toda la página: último mensaje de cada conversación, último pedido
+    vinculado y los pedidos (con cliente y canal).
+    """
     values = list(values)
-    ids = {v["document_id"] for v in values if v["document_id"]}
+    keys = [v["thread_key"] for v in values]
+    if not keys:
+        return []
+    newest = ("thread_key", F("sent_at").desc(nulls_last=True), "-id")
+    last = {
+        m["thread_key"]: m
+        for m in Message.objects.filter(thread_key__in=keys)
+        .order_by(*newest)
+        .distinct("thread_key")
+        .values("thread_key", "text", "direction")
+    }
+    doc_ids = dict(
+        Message.objects.filter(thread_key__in=keys, document__isnull=False)
+        .order_by(*newest)
+        .distinct("thread_key")
+        .values_list("thread_key", "document_id")
+    )
+    ids = set(doc_ids.values())
     docs = SalesDocument.objects.select_related("customer", "channel").in_bulk(ids) if ids else {}
-    return [
-        ThreadRow(
-            thread_key=v["thread_key"],
-            last_sent=v["last_sent"],
-            unread=v["unread"],
-            total=v["total"],
-            last_text=v["last_text"] or "",
-            last_direction=v["last_direction"] or "",
-            document=docs.get(v["document_id"]),
+    rows = []
+    for v in values:
+        message = last.get(v["thread_key"]) or {}
+        rows.append(
+            ThreadRow(
+                thread_key=v["thread_key"],
+                last_sent=v["last_sent"],
+                unread=v["unread"],
+                total=v["total"],
+                last_text=message.get("text") or "",
+                last_direction=message.get("direction") or "",
+                document=docs.get(doc_ids.get(v["thread_key"])),
+            )
         )
-        for v in values
-    ]
+    return rows
 
 
-def threads(*, only_unread: bool = False) -> list[ThreadRow]:
-    return thread_rows(threads_queryset(only_unread=only_unread))
+def threads(*, only_unread: bool = False, since=None) -> list[ThreadRow]:
+    return thread_rows(threads_queryset(only_unread=only_unread, since=since))
 
 
 def thread(thread_key: str) -> tuple[SalesDocument | None, list[Message]]:

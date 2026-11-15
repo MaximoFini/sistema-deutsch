@@ -123,3 +123,49 @@ LISTING_STATUSES = {
 
 def listing_status(code: str) -> str:
     return _get(LISTING_STATUSES, code)
+
+
+# Motivos por los que ML bloquea un mensaje postventa (auditoría M6, A5). Se buscan las palabras en el
+# cuerpo del error (error, message, cause). El orden importa: "blocked_by_mediation" es mediación.
+MESSAGE_BLOCK_REASONS = [
+    (
+        ("mediation", "mediación", "mediacion", "claim", "dispute"),
+        "Mercado Libre no permite enviar mensajes en esta venta porque hay un reclamo o mediación en "
+        "curso. Respondé desde el reclamo en Mercado Libre.",
+    ),
+    (
+        ("limit", "too_many", "too many", "exceeded", "quota"),
+        "Mercado Libre no permite enviar más mensajes por ahora: se llegó al límite de mensajes de esta "
+        "venta. Esperá a que el comprador responda.",
+    ),
+    (
+        ("closed", "cerrad", "expired", "blocked_by_time", "not_allowed_by_time"),
+        "Mercado Libre no permite enviar mensajes en esta conversación porque está cerrada.",
+    ),
+    (
+        ("block", "bloque", "banned"),
+        "Mercado Libre no permite enviar mensajes a este comprador: está bloqueado.",
+    ),
+]
+MESSAGE_BLOCK_UNKNOWN = (
+    "Mercado Libre no permite enviar este mensaje ahora. Probá respondiendo desde Mercado Libre."
+)
+
+
+def message_block_reason(error: dict | None) -> str:
+    """Motivo en castellano a partir del cuerpo de error de ML (lo desconocido, con un texto genérico)."""
+    error = error or {}
+    causes = error.get("cause") or []
+    if not isinstance(causes, list):
+        causes = [causes]
+    text = " ".join(
+        [str(error.get("error") or ""), str(error.get("message") or "")]
+        + [
+            str(c.get("code", "")) + " " + str(c.get("message", "")) if isinstance(c, dict) else str(c)
+            for c in causes
+        ]
+    ).lower()
+    for words, reason in MESSAGE_BLOCK_REASONS:
+        if any(w in text for w in words):
+            return reason
+    return MESSAGE_BLOCK_UNKNOWN

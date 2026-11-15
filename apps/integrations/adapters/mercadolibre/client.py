@@ -7,15 +7,26 @@ from . import auth
 API_BASE = "https://api.mercadolibre.com"
 CHANNEL = auth.CHANNEL
 MAX_PAGES = 400
+QUICK_TIMEOUT = 4.0
 
 
 class MLClient:
-    def __init__(self, *, sleep=None):
+    def __init__(self, *, sleep=None, timeout: float | None = None, max_retries: int | None = None):
+        """`timeout`/`max_retries` vacíos = los de ChannelClient (20 s y 3 reintentos)."""
         kwargs = {"sleep": sleep} if sleep is not None else {}
+        if timeout is not None:
+            kwargs["timeout"] = timeout
+        if max_retries is not None:
+            kwargs["max_retries"] = max_retries
         self.http = ChannelClient(
             CHANNEL, base_url=API_BASE, headers={"Accept": "application/json"}, **kwargs
         )
         self._user_id = None
+
+    @classmethod
+    def quick(cls, **kwargs) -> "MLClient":
+        """Cliente para lecturas "de adorno" dentro de una pantalla: 4 s y sin reintentos."""
+        return cls(timeout=QUICK_TIMEOUT, max_retries=0, **kwargs)
 
     @property
     def user_id(self) -> str:

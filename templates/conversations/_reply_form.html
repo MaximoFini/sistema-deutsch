@@ -34,13 +34,17 @@
       update();
       area.focus();
     });
+    // Un solo envío (como en M5): el doble clic mandaba el mismo mensaje dos veces al comprador.
+    // El servidor también frena el repetido; esto evita el segundo POST.
     var sending = false;
     form.addEventListener("submit", function (e) {
-      if (sending) { e.preventDefault(); return; }
+      if (sending || button.disabled) { e.preventDefault(); return; }
       sending = true;
+      // Se deshabilita después de armar el envío, igual que en despacho.
       setTimeout(function () { button.disabled = true; button.textContent = button.dataset.busy; }, 0);
     });
   });
+  // Al volver con «Atrás» el navegador puede mostrar la página vieja con el botón trabado.
   window.addEventListener("pageshow", function (e) { if (e.persisted) location.reload(); });
 })();
 </script>

@@ -154,6 +154,8 @@ ORDERS_MANUAL_PENDING_HOURS = env.int("ORDERS_MANUAL_PENDING_HOURS", default=24)
 
 # ── Operación de Mercado Libre (M6) ──
 ML_QUESTION_WARNING_HOURS = env.int("ML_QUESTION_WARNING_HOURS", default=12)
+# Solo se avisa por preguntas hechas en los últimos N días (las viejas importadas no generan avisos).
+ML_QUESTION_ALERT_MAX_AGE_DAYS = env.int("ML_QUESTION_ALERT_MAX_AGE_DAYS", default=3)
 ML_CLAIM_WARNING_HOURS = sorted(env.list("ML_CLAIM_WARNING_HOURS", cast=int, default=[24, 4]), reverse=True)
 ML_HEALTH_MIN_SCORE = env.float("ML_HEALTH_MIN_SCORE", default=0.7)
 # Enlaces a Mercado Libre ({id} = publicación, {order_id} = venta). Se confirman con la cuenta real.

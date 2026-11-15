@@ -437,12 +437,15 @@ def test_question_detail_shows_context(client, users_by_role, catalog_variants, 
     api.get(f"/catalog/charts/{GRID}").mock(return_value=httpx.Response(200, json=CHART))
     SavedReply.objects.create(title="Talles", text="Mirá la guía de talles", created_by=users_by_role[ADMIN])
     q = make_question()
-    content = (
-        client_for(client, users_by_role, VENTAS).get(reverse("ml:question_detail", args=[q.pk])).content
-    )
-    content = content.decode()
+    c = client_for(client, users_by_role, VENTAS)
+    content = c.get(reverse("ml:question_detail", args=[q.pk])).content.decode()
     assert "Stock por talle y color" in content and "BUZ-001-M-NEG" in content
+    # Auditoría M6 (A4): la guía vencida/no cacheada ya no se pide dentro de la página, se carga con HTMX.
+    assert "Cargando guía de talles" in content and reverse("ml:question_size_chart", args=[q.pk]) in content
+    content = c.get(reverse("ml:question_size_chart", args=[q.pk])).content.decode()
     assert "Guía de talles" in content and "106 cm" in content
+    content = c.get(reverse("ml:question_detail", args=[q.pk])).content.decode()
+    assert "106 cm" in content  # ya en el caché: se muestra directo
     assert "Mirá la guía de talles" in content  # respuesta guardada lista para insertar
 
 

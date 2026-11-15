@@ -243,6 +243,22 @@ def _fresh(chart: dict | None, grid_id: str) -> bool:
     return bool(fetched and timezone.now() - fetched < timedelta(hours=settings.ML_SIZE_CHART_TTL_HOURS))
 
 
+def cached_size_chart(listing: Listing | None) -> tuple[dict | None, bool]:
+    """(guía vigente del caché o None, hay que pedirla a ML). No llama a ML.
+
+    La ficha de la pregunta muestra la vigente al toque; si hay que pedirla, la carga aparte con HTMX
+    (auditoría M6, A4) para que la página no quede esperando a ML.
+    """
+    data = (listing.data or {}) if listing is not None else {}
+    grid_id = str(data.get("size_grid_id") or "")
+    if not grid_id:
+        return None, False
+    cached = data.get("size_chart")
+    if _fresh(cached, grid_id):
+        return cached, False
+    return None, True
+
+
 def size_chart(listing: Listing | None, client=None) -> dict | None:
     """Guía de talles de la publicación en ML, cacheada en `Listing.data["size_chart"]`.
 

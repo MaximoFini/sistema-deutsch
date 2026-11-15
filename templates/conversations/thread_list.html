@@ -3,7 +3,7 @@
 {% block title %}Mensajes · Mercado Libre{% endblock %}
 {% block content %}
 <h1 class="text-xl font-semibold">Mensajes postventa</h1>
-<p class="mb-3 text-sm text-stone-600">Una fila por venta. Primero las que tienen mensajes sin leer.</p>
+<p class="mb-3 text-sm text-stone-600">Una fila por venta. Primero las que tienen mensajes sin leer.{% if not show_old and not only_unread %} Se muestran las de los últimos {{ recent_days }} días y todas las que tienen mensajes sin leer.{% endif %}</p>
 <div class="mb-4 flex flex-wrap gap-2 text-sm">
   <a href="{% url 'ml:threads' %}" class="rounded-full border px-3 py-1.5 {% if not only_unread %}bg-stone-900 text-white{% endif %}">Todas</a>
   <a href="?sin_leer=1" class="rounded-full border px-3 py-1.5 {% if only_unread %}bg-stone-900 text-white{% endif %}">Solo sin leer</a>
@@ -24,4 +24,5 @@
   {% endfor %}
 </div>
 {% include "_pagination.html" with noun="conversaciones" %}
+{% if older_exist %}<p class="mt-4 text-center text-sm"><a href="?viejas=1" class="underline">Ver más viejas</a> (sin mensajes en los últimos {{ recent_days }} días)</p>{% elif show_old %}<p class="mt-4 text-center text-sm"><a href="{% url 'ml:threads' %}" class="underline">Ver solo las recientes</a></p>{% endif %}
 {% endblock %}
