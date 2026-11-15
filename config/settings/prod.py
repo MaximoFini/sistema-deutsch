@@ -14,6 +14,10 @@ X_FRAME_OPTIONS = "DENY"
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+    "private": {  # comprobantes de la tienda mayorista: fuera de MEDIA_ROOT, sin URL pública
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"location": PRIVATE_MEDIA_ROOT, "base_url": None},  # noqa: F405
+    },
 }
 
 # HSTS solo para el subdominio del panel: no se fuerza a todo deutsch.com.ar (la tienda TN y otros

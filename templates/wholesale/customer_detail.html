@@ -1,0 +1,92 @@
+{% extends "base.html" %}{% load orders %}
+{% block title %}{{ account.display_name }} · Clientes mayoristas{% endblock %}
+{% block content %}
+<a href="{% url 'wholesale_customers:list' %}?estado={{ account.status }}" class="text-sm underline">← Clientes mayoristas</a>
+<div class="mb-4 mt-2 flex flex-wrap items-center gap-3">
+  <h1 class="text-xl font-semibold">{{ account.display_name }}</h1>
+  <span class="rounded px-2 py-0.5 text-xs font-medium {% if account.status == 'approved' %}bg-emerald-100 text-emerald-800{% elif account.status == 'pending' %}bg-amber-100 text-amber-900{% else %}bg-stone-200 text-stone-800{% endif %}">{{ account.get_status_display }}</span>
+  {% if account.credit_enabled %}<span class="rounded bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-900">Cuenta corriente</span>{% endif %}
+</div>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <section class="rounded-lg border border-stone-200 bg-white p-4 lg:col-span-2">
+    <h2 class="mb-3 font-semibold">Datos del registro</h2>
+    <form method="post" class="grid gap-3 sm:grid-cols-2">{% csrf_token %}
+      {% if form.non_field_errors %}<div class="sm:col-span-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+      {% for field in form %}
+      <label class="block text-sm {% if field.name == 'legal_name' or field.name == 'street' %}sm:col-span-2{% endif %}">
+        <span class="text-stone-700">{{ field.label }}</span>
+        {% if field.field.widget.input_type %}
+        <input type="text" name="{{ field.html_name }}" value="{{ field.value|default_if_none:'' }}" {% if field.field.disabled or not can_manage %}disabled{% endif %} class="mt-1 block w-full rounded border border-stone-300 px-3 py-1.5 disabled:bg-stone-100">
+        {% else %}
+        <select name="{{ field.html_name }}" {% if not can_manage %}disabled{% endif %} class="mt-1 block w-full rounded border border-stone-300 px-3 py-1.5">
+          {% for value, label in field.field.choices %}<option value="{{ value }}" {% if value|stringformat:'s' == field.value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        {% endif %}
+        {% if field.help_text %}<span class="mt-1 block text-xs text-stone-500">{{ field.help_text }}</span>{% endif %}
+        {% for error in field.errors %}<span class="mt-1 block text-xs text-red-700">{{ error }}</span>{% endfor %}
+      </label>
+      {% endfor %}
+      <p class="text-sm text-stone-600 sm:col-span-2">Email de acceso: <strong>{{ account.user.email }}</strong> · Aceptó los términos el {{ account.accepted_terms_at|date:"d/m/Y H:i" }}</p>
+      {% if can_manage %}<div class="sm:col-span-2"><button class="rounded bg-stone-900 px-3 py-2 text-sm text-white">Guardar correcciones</button></div>{% endif %}
+    </form>
+  </section>
+
+  <aside class="space-y-4">
+    <section class="rounded-lg border border-stone-200 bg-white p-4 text-sm">
+      <h2 class="mb-2 font-semibold">Estado</h2>
+      {% if account.reviewed_at %}<p class="text-stone-600">Revisado por {{ account.reviewed_by|default:"—" }} el {{ account.reviewed_at|date:"d/m/Y H:i" }}.</p>{% endif %}
+      {% if account.rejection_reason %}<p class="mt-1"><strong>Motivo del rechazo:</strong> {{ account.rejection_reason }}</p>{% endif %}
+      {% if account.customer %}<p class="mt-1">Cliente vinculado: <strong>{{ account.customer }}</strong> (#{{ account.customer_id }})</p>{% endif %}
+      {% if can_manage %}
+      <div class="mt-3 space-y-3">
+        {% if account.status == "pending" or account.status == "rejected" %}
+        <form method="post" action="{% url 'wholesale_customers:action' account.pk %}">{% csrf_token %}
+          <input type="hidden" name="action" value="approve">
+          <button class="w-full rounded bg-emerald-700 px-3 py-2 text-white hover:bg-emerald-800">Aprobar</button>
+          <p class="mt-1 text-xs text-stone-500">Si ya existe un cliente con este CUIT (p. ej. de pedidos manuales), se vincula a ese.</p>
+        </form>
+        {% endif %}
+        {% if account.status == "pending" %}
+        <form method="post" action="{% url 'wholesale_customers:action' account.pk %}" class="space-y-2">{% csrf_token %}
+          <input type="hidden" name="action" value="reject">
+          <label class="block"><span class="text-stone-700">Motivo del rechazo (se lo mandamos por email)</span>
+            <textarea name="reason" rows="2" required class="mt-1 block w-full rounded border border-stone-300 px-2 py-1"></textarea></label>
+          <button class="w-full rounded border border-red-300 px-3 py-2 text-red-800 hover:bg-red-50">Rechazar</button>
+        </form>
+        {% endif %}
+        {% if account.status == "approved" %}
+        <form method="post" action="{% url 'wholesale_customers:action' account.pk %}">{% csrf_token %}
+          <input type="hidden" name="action" value="{% if account.credit_enabled %}credit_off{% else %}credit_on{% endif %}">
+          <button class="w-full rounded border border-stone-300 px-3 py-2 hover:bg-stone-50">{% if account.credit_enabled %}Deshabilitar{% else %}Habilitar{% endif %} cuenta corriente</button>
+        </form>
+        <form method="post" action="{% url 'wholesale_customers:action' account.pk %}">{% csrf_token %}
+          <input type="hidden" name="action" value="suspend">
+          <button class="w-full rounded border border-red-300 px-3 py-2 text-red-800 hover:bg-red-50">Suspender la cuenta</button>
+        </form>
+        {% elif account.status == "suspended" %}
+        <form method="post" action="{% url 'wholesale_customers:action' account.pk %}">{% csrf_token %}
+          <input type="hidden" name="action" value="reactivate">
+          <button class="w-full rounded bg-stone-900 px-3 py-2 text-white">Reactivar la cuenta</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+    </section>
+  </aside>
+</div>
+
+<section class="mt-6 rounded-lg border border-stone-200 bg-white p-4">
+  <h2 class="mb-3 font-semibold">Pedidos</h2>
+  {% if orders %}
+  <table class="w-full text-sm">
+    <thead class="text-left text-stone-600"><tr><th class="py-1">Pedido</th><th>Fecha</th><th>Canal</th><th>Estado</th><th class="text-right">Total</th></tr></thead>
+    <tbody class="divide-y divide-stone-100">
+      {% for d in orders %}
+      <tr><td class="py-1.5"><a class="underline" href="{% url 'sales:detail' d.pk %}">{{ d.channel_reference|default:d }}</a></td><td>{{ d.issued_at|date:"d/m/Y" }}</td><td>{{ d.channel.name }}</td><td>{{ d.status|status_label }}</td><td class="text-right tabular-nums">$ {{ d.total|floatformat:"2g" }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="text-sm text-stone-500">Todavía no tiene pedidos.</p>{% endif %}
+</section>
+{% endblock %}

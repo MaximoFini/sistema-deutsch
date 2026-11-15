@@ -1,0 +1,2 @@
+{# Alerta. `kind`: info | success | warning | error (los tags de messages también sirven). `text` o bloque. #}
+<div class="st-alert {% if kind == 'error' %}st-alert-error{% elif kind == 'warning' %}st-alert-warning{% elif kind == 'success' %}st-alert-success{% else %}st-alert-info{% endif %}"{% if kind == 'error' %} role="alert"{% endif %}>{{ text }}</div>

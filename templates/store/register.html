@@ -1,0 +1,56 @@
+{% extends "store/_auth_base.html" %}
+{% block title %}Registrarme{% endblock %}
+{% block auth_width %}max-w-2xl{% endblock %}
+{% block heading %}Registrate en la tienda mayorista{% endblock %}
+{% block intro %}<p class="text-brand-gray-600">Completá los datos de tu negocio. Revisamos cada registro y te avisamos por email cuando tu cuenta esté aprobada.</p>{% endblock %}
+{% block auth %}
+<form method="post" class="space-y-6" novalidate>{% csrf_token %}
+  {% if form.non_field_errors %}
+    {% for error in form.non_field_errors %}{% include "store/components/alert.html" with kind="error" text=error %}{% endfor %}
+  {% elif form.errors %}
+    {% include "store/components/alert.html" with kind="error" text="Revisá los datos marcados en rojo." %}
+  {% endif %}
+
+  <fieldset class="space-y-4">
+    <legend class="mb-2 text-lg font-bold">Tu negocio</legend>
+    {% include "store/components/field.html" with field=form.cuit %}
+    {% include "store/components/field.html" with field=form.legal_name %}
+    {% include "store/components/field.html" with field=form.trade_name %}
+    {% include "store/components/field.html" with field=form.vat_condition %}
+  </fieldset>
+
+  <fieldset class="space-y-4">
+    <legend class="mb-2 text-lg font-bold">Domicilio</legend>
+    <div class="grid gap-4 sm:grid-cols-3">
+      <div class="sm:col-span-2">{% include "store/components/field.html" with field=form.street %}</div>
+      {% include "store/components/field.html" with field=form.number %}
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2">
+      {% include "store/components/field.html" with field=form.city %}
+      {% include "store/components/field.html" with field=form.postal_code %}
+    </div>
+    {% include "store/components/field.html" with field=form.province %}
+  </fieldset>
+
+  <fieldset class="space-y-4">
+    <legend class="mb-2 text-lg font-bold">Contacto y acceso</legend>
+    {% include "store/components/field.html" with field=form.phone %}
+    {% include "store/components/field.html" with field=form.email %}
+    <div class="grid gap-4 sm:grid-cols-2">
+      {% include "store/components/field.html" with field=form.password1 %}
+      {% include "store/components/field.html" with field=form.password2 %}
+    </div>
+  </fieldset>
+
+  {# Campo trampa: fuera de la pantalla y fuera del orden de tabulación. Una persona no lo ve. #}
+  <div aria-hidden="true" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;">
+    <label for="{{ form.website.id_for_label }}">No completes este campo</label>{{ form.website }}
+  </div>
+
+  {% include "store/components/field.html" with field=form.accept_terms %}
+  <p class="text-sm text-brand-gray-600">Leé los <a href="{% url 'store:terms' %}" class="st-link" target="_blank" rel="noopener">términos de venta mayorista</a> y la <a href="{% url 'store:privacy' %}" class="st-link" target="_blank" rel="noopener">política de privacidad</a>.</p>
+
+  {% include "store/components/button.html" with label="Enviar mi registro" block=True %}
+</form>
+{% endblock %}
+{% block after %}<p class="mt-4 text-center text-sm">¿Ya tenés cuenta? <a href="{% url 'store:login' %}" class="st-link">Ingresá</a></p>{% endblock %}

@@ -16,7 +16,9 @@ SENTRY_DSN = ""
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    "private": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
 }
+STORE_EMAILS_ENABLED = False
 MIDDLEWARE = [m for m in MIDDLEWARE if "whitenoise" not in m]  # noqa: F405
 TN_APP_ID = "1234"
 TN_CLIENT_SECRET = "secreto-de-test"

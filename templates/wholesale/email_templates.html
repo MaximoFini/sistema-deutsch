@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Textos de los emails · Sistema Deutsch{% endblock %}
+{% block content %}
+<h1 class="mb-3 text-xl font-semibold">Tienda mayorista</h1>
+{% include "wholesale/_tabs.html" with active="templates" %}
+<p class="mb-3 max-w-3xl text-sm text-stone-600">Estos son los emails que reciben los clientes en cada paso. Arrancan con un texto propuesto: revisalos y ajustalos a tu manera de escribir.</p>
+<ul class="divide-y divide-stone-100 rounded-lg border border-stone-200 bg-white">
+  {% for t in templates %}
+  <li class="flex flex-wrap items-center gap-3 px-4 py-3">
+    <div class="flex-1"><p class="font-medium">{{ t.name }}</p><p class="text-sm text-stone-600">{{ t.subject }}</p></div>
+    <a href="{% url 'store_admin:email_template_edit' t.code %}" class="text-sm underline">Editar</a>
+  </li>
+  {% endfor %}
+</ul>
+{% endblock %}

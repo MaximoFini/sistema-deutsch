@@ -1,1 +1,28 @@
 @import "tailwindcss";
+
+/* Tienda mayorista (M8a): tokens de marca y componentes. El panel no los usa todavía; los puede
+   adoptar después sin rehacerlos. */
+@import "../../static/brand/tokens.css";
+@import "./store.css";
+
+@theme inline {
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-blue-text: var(--brand-blue-text);
+  --color-brand-blue-dark: var(--brand-blue-dark);
+  --color-brand-water: var(--brand-water);
+  --color-brand-water-50: var(--brand-water-50);
+  --color-brand-water-300: var(--brand-water-300);
+  --color-brand-gray-50: var(--brand-gray-50);
+  --color-brand-gray-200: var(--brand-gray-200);
+  --color-brand-gray-400: var(--brand-gray-400);
+  --color-brand-gray-600: var(--brand-gray-600);
+  --color-brand-gray-800: var(--brand-gray-800);
+  --color-brand-success: var(--brand-success);
+  --color-brand-success-bg: var(--brand-success-bg);
+  --color-brand-warning: var(--brand-warning);
+  --color-brand-warning-bg: var(--brand-warning-bg);
+  --color-brand-danger: var(--brand-danger);
+  --color-brand-danger-bg: var(--brand-danger-bg);
+  --font-brand: var(--brand-font);
+}

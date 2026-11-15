@@ -1,0 +1,17 @@
+{# Campo de formulario de marca. Recibe `field` (BoundField). Los checkboxes van con la etiqueta al lado. #}
+{% if field.is_hidden %}{{ field }}{% elif field.field.widget.input_type == "checkbox" %}
+<div>
+  <label class="flex items-start gap-3 text-base">
+    {{ field }}
+    <span>{{ field.label }}</span>
+  </label>
+  {% for error in field.errors %}<span class="st-error">{{ error }}</span>{% endfor %}
+</div>
+{% else %}
+<div>
+  <label class="st-label" for="{{ field.id_for_label }}">{{ field.label }}{% if not field.field.required and not field.field.conditional %} <span class="font-normal text-brand-gray-600">(opcional)</span>{% endif %}</label>
+  {{ field }}
+  {% if field.help_text %}<span class="st-help" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</span>{% endif %}
+  {% for error in field.errors %}<span class="st-error">{{ error }}</span>{% endfor %}
+</div>
+{% endif %}

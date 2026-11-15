@@ -1,0 +1,79 @@
+{% extends "store/base.html" %}
+{% load store %}
+{% block title %}Carrito{% endblock %}
+{% block content %}
+<h1 class="mb-4 text-2xl font-bold sm:text-3xl">Tu carrito</h1>
+{% if not summary.lines %}
+<div class="st-card p-6 text-center">
+  <p class="font-semibold">Tu carrito está vacío.</p>
+  <p class="mt-1 text-brand-gray-600">Elegí productos del catálogo y cargá las cantidades por talle y color.</p>
+  <div class="mt-4">{% url "store:home" as home_url %}{% include "store/components/button.html" with label="Ver el catálogo" href=home_url %}</div>
+</div>
+{% else %}
+<div class="grid gap-6 lg:grid-cols-3">
+  <form method="post" action="{% url 'store:cart_update' %}" class="lg:col-span-2">{% csrf_token %}
+    {% if summary.has_problems %}
+      <div class="mb-3">{% include "store/components/alert.html" with kind="warning" text="Algunos productos cambiaron: revisá los marcados antes de seguir." %}</div>
+    {% endif %}
+    <ul class="st-card divide-y divide-brand-gray-200">
+      {% for line in summary.lines %}
+      <li class="flex flex-wrap items-center gap-3 p-4">
+        <div class="min-w-0 basis-full sm:basis-auto sm:flex-1">
+          <a href="{% url 'store:product' line.variant.product_id %}" class="font-semibold hover:underline">{{ line.variant.product.name }}</a>
+          <div class="text-sm text-brand-gray-600">{{ line.label|default:"" }}{% if line.label %} · {% endif %}{{ line.variant.sku }}</div>
+          {% if not line.sellable %}
+            <span class="st-error">Ya no está a la venta. Sacalo del carrito para seguir.</span>
+          {% elif line.available <= 0 %}
+            <span class="st-error">Se agotó. Sacalo del carrito para seguir.</span>
+          {% elif line.over_stock %}
+            <span class="st-error">Solo podés pedir hasta {{ line.available }}.</span>
+          {% else %}
+            <div class="text-sm">{{ line.net|money }} c/u</div>
+          {% endif %}
+        </div>
+        <label class="flex items-center gap-2">
+          <span class="sr-only">Cantidad de {{ line.variant.product.name }} {{ line.label }}</span>
+          <input type="number" inputmode="numeric" min="0" step="1" name="qty-{{ line.variant.pk }}" value="{{ line.quantity }}" {% if line.sellable %}max="{{ line.available }}"{% endif %} class="st-qty">
+        </label>
+        <div class="flex-1 text-right font-semibold st-num sm:w-28 sm:flex-none">{% if line.sellable %}{{ line.total|money }}{% else %}—{% endif %}</div>
+        <button class="st-btn st-btn-ghost px-2 text-sm text-brand-danger" name="remove" value="{{ line.variant.pk }}" aria-label="Sacar {{ line.variant.product.name }} {{ line.label }}">Sacar</button>
+      </li>
+      {% endfor %}
+    </ul>
+    <div class="mt-3 flex flex-wrap gap-2">
+      <button class="st-btn st-btn-secondary">Actualizar cantidades</button>
+      <button class="st-btn st-btn-ghost" name="clear" value="1">Vaciar el carrito</button>
+    </div>
+  </form>
+
+  <aside class="st-card h-fit p-5">
+    <h2 class="mb-3 text-lg font-bold">Resumen</h2>
+    <dl class="space-y-2">
+      <div class="flex justify-between"><dt>Subtotal sin IVA ({{ summary.units }} u.)</dt><dd class="st-num">{{ summary.subtotal|money }}</dd></div>
+      <div class="flex justify-between"><dt>IVA 21 %</dt><dd class="st-num">{{ summary.vat|money }}</dd></div>
+      {% if summary.balance_applied %}
+      <div class="flex justify-between text-brand-success"><dt>Saldo a favor</dt><dd class="st-num">− {{ summary.balance_applied|money }}</dd></div>
+      {% endif %}
+      <div class="flex justify-between border-t border-brand-gray-200 pt-2 text-lg font-bold"><dt>Total</dt><dd class="st-num">{{ summary.total|money }}</dd></div>
+    </dl>
+    {% if summary.balance_available and not summary.balance_applied %}<p class="st-help">Tenés {{ summary.balance_available|money }} de saldo a favor.</p>{% endif %}
+    <div class="mt-4">
+      {% if not summary.min_applies %}
+        <p class="mb-3 text-sm text-brand-gray-600">Pedido cargado por Deutsch: sin mínimo de compra.</p>
+      {% elif not summary.reaches_min %}
+        {% with missing=summary.missing_for_min|money minimum=summary.min_amount|money %}
+        {% include "store/components/alert.html" with kind="warning" text="Te faltan "|add:missing|add:" para llegar al mínimo de compra de "|add:minimum|add:"." %}
+        {% endwith %}
+        <p class="st-help mt-1">El mínimo se calcula {% if summary.min_includes_vat %}con IVA{% else %}sin IVA{% endif %}.</p>
+      {% endif %}
+      {% if summary.can_checkout %}
+        <div class="mt-3">{% url "store:checkout" as checkout_url %}{% include "store/components/button.html" with label="Elegir entrega y pago" href=checkout_url block=True %}</div>
+      {% else %}
+        <div class="mt-3">{% include "store/components/button.html" with label="Elegir entrega y pago" type="button" disabled=True block=True %}</div>
+      {% endif %}
+      <div class="mt-2 text-center"><a href="{% url 'store:home' %}" class="st-link text-sm">Seguir comprando</a></div>
+    </div>
+  </aside>
+</div>
+{% endif %}
+{% endblock %}

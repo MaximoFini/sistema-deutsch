@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Emails a clientes · Sistema Deutsch{% endblock %}
+{% block content %}
+<h1 class="mb-3 text-xl font-semibold">Tienda mayorista</h1>
+{% include "wholesale/_tabs.html" with active="emails" %}
+{% if not emails_enabled %}
+<div class="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">Todavía no está configurado el correo saliente de Deutsch. Los emails quedan acá como «pendiente de envío» y se mandan solos cuando se configure.</div>
+{% endif %}
+<div class="mb-3 flex flex-wrap gap-2 text-sm">
+  {% for code, label in statuses %}
+  <a href="?estado={{ code }}" class="rounded-full border px-3 py-1 {% if code == status %}border-stone-900 bg-stone-900 text-white{% else %}border-stone-300 bg-white hover:bg-stone-100{% endif %}">{{ label }}{% if code == "pending" %} ({{ pending_emails }}){% endif %}</a>
+  {% endfor %}
+</div>
+<ul class="divide-y divide-stone-100 rounded-lg border border-stone-200 bg-white">
+  {% for e in emails %}
+  <li class="px-4 py-3">
+    <details>
+      <summary class="cursor-pointer"><span class="font-medium">{{ e.subject }}</span> <span class="text-sm text-stone-600">→ {{ e.to }} · {{ e.created_at|date:"d/m/Y H:i" }}{% if e.attempts %} · {{ e.attempts }} intento{{ e.attempts|pluralize }}{% endif %}</span></summary>
+      {% if e.last_error %}<p class="mt-2 text-sm text-red-700">Último error: {{ e.last_error }}</p>{% endif %}
+      <pre class="mt-2 whitespace-pre-wrap rounded bg-stone-50 p-3 text-sm">{{ e.body_text }}</pre>
+    </details>
+  </li>
+  {% empty %}
+  <li class="px-4 py-6 text-center text-sm text-stone-500">No hay emails en esta lista.</li>
+  {% endfor %}
+</ul>
+{% include "_pagination.html" with noun="emails" %}
+{% endblock %}

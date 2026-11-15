@@ -1,0 +1,36 @@
+{% load store %}{# Grilla talle × color. Recibe `grid` (catalog.Grid o un dict con sizes/colors/rows) y `demo` opcional. #}
+<div class="st-grid-wrap" data-size-grid>
+  <table class="st-grid">
+    <thead>
+      <tr>
+        <th scope="col" class="text-left">{% if grid.sizes|length > 1 or grid.sizes.0 %}Talle{% endif %}</th>
+        {% for color in grid.colors %}<th scope="col">{{ color|default:"Cantidad" }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for size, cells in grid.rows %}
+      <tr>
+        <th scope="row">{{ size|default:"—" }}</th>
+        {% for cell in cells %}
+        <td>
+          {% if cell %}
+            {% with vid=cell.variant.pk|default:forloop.counter %}
+            <input type="number" inputmode="numeric" pattern="[0-9]*" min="0" step="1"
+                   name="qty-{{ vid }}" value="{% if cell.in_cart %}{{ cell.in_cart }}{% endif %}"
+                   max="{{ cell.available }}" data-price="{{ cell.net|stringformat:'s' }}"
+                   class="st-qty{% if cell.in_cart %} has-value{% endif %}"
+                   aria-label="Cantidad talle {{ size|default:'único' }}{% if grid.colors|length > 1 or grid.colors.0 %}, color {{ grid.colors|slice:forloop.counter|last }}{% endif %}{% if cell.sold_out %}: agotado{% endif %}"
+                   {% if cell.sold_out %}disabled placeholder="–"{% else %}placeholder="0"{% endif %}>
+            {% if cell.sold_out %}<span class="st-cell-out">Agotado</span>{% endif %}
+            {% endwith %}
+          {% else %}
+            <span class="text-brand-gray-400" aria-label="No existe">·</span>
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="st-help" data-grid-warning aria-live="polite"></p>

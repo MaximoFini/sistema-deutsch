@@ -1,0 +1,8 @@
+{% extends "store/_auth_base.html" %}
+{% block title %}Ingreso bloqueado{% endblock %}
+{% block heading %}Ingreso bloqueado por un rato{% endblock %}
+{% block auth %}
+<p>Por seguridad bloqueamos el ingreso por 30 minutos porque hubo varios intentos con la contraseña equivocada.</p>
+<p class="mt-3">Esperá y probá de nuevo. Si no te acordás la contraseña, pedí una nueva.</p>
+<div class="mt-5">{% url "store:password_reset" as reset_url %}{% include "store/components/button.html" with label="Me olvidé la contraseña" href=reset_url variant="secondary" block=True %}</div>
+{% endblock %}

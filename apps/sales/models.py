@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 from django.db import models
@@ -76,6 +76,22 @@ class SalesDocument(TimeStampedModel):
     def recalculate_totals(self, save=True):
         lines = list(self.lines.all())
         self.subtotal = sum((line.line_total for line in lines), start=0)
+        if self.channel.code == "mayorista":
+            # M8: precios netos con el IVA aparte (por línea, redondeado al centavo). El descuento es el
+            # saldo a favor aplicado.
+            self.tax_total = sum(
+                (
+                    (Decimal(line.line_total) * Decimal(line.vat_rate) / 100).quantize(
+                        Decimal("0.01"), ROUND_HALF_UP
+                    )
+                    for line in lines
+                ),
+                start=Decimal(0),
+            )
+            self.total = self.subtotal + self.tax_total - self.discount_total + self.shipping_total
+            if save:
+                self.save(update_fields=["subtotal", "tax_total", "total", "updated_at"])
+            return
         self.total = self.subtotal - self.discount_total + self.shipping_total
         if save:
             self.save(update_fields=["subtotal", "total", "updated_at"])

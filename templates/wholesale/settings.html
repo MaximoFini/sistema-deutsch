@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Configuración de la tienda · Sistema Deutsch{% endblock %}
+{% block content %}
+<h1 class="mb-3 text-xl font-semibold">Tienda mayorista</h1>
+{% include "wholesale/_tabs.html" with active="settings" %}
+<form method="post" class="max-w-3xl space-y-4 rounded-lg border border-stone-200 bg-white p-4">{% csrf_token %}
+  {% for field in form %}
+  <div>
+    {% if field.field.widget.input_type == "checkbox" %}
+      <label class="flex items-center gap-2 text-sm">{{ field }} <span>{{ field.label }}</span></label>
+    {% else %}
+      <label class="block text-sm"><span class="text-stone-700">{{ field.label }}</span>
+        {% if field.field.widget.input_type %}
+        <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}" value="{{ field.value|default_if_none:'' }}" step="any" class="mt-1 block w-full rounded border border-stone-300 px-3 py-1.5">
+        {% else %}
+        <textarea name="{{ field.html_name }}" rows="{{ field.field.widget.attrs.rows|default:4 }}" class="mt-1 block w-full rounded border border-stone-300 px-3 py-1.5">{{ field.value|default_if_none:'' }}</textarea>
+        {% endif %}
+      </label>
+    {% endif %}
+    {% if field.help_text %}<p class="mt-1 text-xs text-stone-500">{{ field.help_text }}</p>{% endif %}
+    {% for error in field.errors %}<p class="mt-1 text-xs text-red-700">{{ error }}</p>{% endfor %}
+  </div>
+  {% endfor %}
+  <button class="rounded bg-stone-900 px-3 py-2 text-sm text-white">Guardar</button>
+</form>
+{% endblock %}

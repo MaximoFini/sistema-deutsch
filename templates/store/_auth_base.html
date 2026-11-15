@@ -1,0 +1,11 @@
+{% extends "store/base.html" %}
+{% block content %}
+<div class="mx-auto w-full {% block auth_width %}max-w-md{% endblock %}">
+  <h1 class="mb-1 text-2xl font-bold sm:text-3xl">{% block heading %}{% endblock %}</h1>
+  {% block intro %}{% endblock %}
+  <div class="st-card mt-4 p-5 sm:p-6">
+    {% block auth %}{% endblock %}
+  </div>
+  {% block after %}{% endblock %}
+</div>
+{% endblock %}

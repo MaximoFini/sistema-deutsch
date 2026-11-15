@@ -41,6 +41,13 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "fulfillment.view_pickbatch",
         "fulfillment.manage_carriers",
         "reports.view_reports",
+        "wholesale.view_customeraccount",
+        "wholesale.manage_customers",
+        "wholesale.confirm_payment",
+        "wholesale.order_on_behalf",
+        "wholesale.report_shortage",
+        "wholesale.resolve_shortage",
+        "wholesale.manage_store",
     ],
     DEPOSITO: [
         "alerts.view_alert",
@@ -49,6 +56,7 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "sales.change_order_status",
         "sales.receive_return",
         "fulfillment.view_pickbatch",
+        "wholesale.report_shortage",
     ],
     VENTAS: [
         "alerts.view_alert",
@@ -69,6 +77,8 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "sales.add_manual_order",
         "sales.receive_return",
         "fulfillment.view_pickbatch",
+        "wholesale.view_customeraccount",
+        "wholesale.report_shortage",
     ],
     VENDEDOR: [
         "alerts.view_alert",
@@ -78,6 +88,8 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "conversations.answer_question",
         "conversations.view_message",
         "conversations.send_message",
+        "wholesale.view_customeraccount",
+        "wholesale.order_on_behalf",
     ],
 }
 
@@ -116,6 +128,13 @@ PERMISSION_LABELS: dict[str, str] = {
     "fulfillment.view_pickbatch": "Ver las tandas de preparación y su hoja de picking",
     "fulfillment.manage_carriers": "Editar la lista de expresos (transportes)",
     "reports.view_reports": "Ver reportes",
+    "wholesale.view_customeraccount": "Ver clientes mayoristas y sus pedidos",
+    "wholesale.manage_customers": "Aprobar, rechazar y suspender clientes mayoristas; habilitar cuenta corriente",
+    "wholesale.confirm_payment": "Confirmar pagos de pedidos mayoristas",
+    "wholesale.order_on_behalf": "Armar pedidos en la tienda mayorista en nombre de un cliente",
+    "wholesale.report_shortage": "Marcar faltantes en pedidos mayoristas",
+    "wholesale.resolve_shortage": "Ajustar pedidos mayoristas con faltantes (saldo a favor o reintegro)",
+    "wholesale.manage_store": "Configurar la tienda mayorista (mínimo, datos bancarios, textos y emails)",
 }
 
 
@@ -146,7 +165,7 @@ def _last_project_app_label() -> str:
 
 def sync_roles_signal(sender, using="default", **kwargs):
     # La señal llega una vez por app, en el orden de INSTALLED_APPS; sincronizamos con la última
-    # app propia (hoy `reports`), así ya existen los permisos de todas las apps en el primer migrate.
+    # app propia (hoy `reports`, después de `wholesale`), así ya existen los permisos de todas las apps en el primer migrate.
     if getattr(sender, "label", None) != _last_project_app_label():
         return
     sync_roles(using=using)

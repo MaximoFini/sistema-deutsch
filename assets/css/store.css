@@ -1,0 +1,95 @@
+/*
+ * Componentes de la tienda mayorista (prefijo `st-`). Usan solo los tokens de static/brand/tokens.css.
+ * Se ven todos juntos en /mayorista/estilo/ (solo usuarios internos).
+ */
+@layer components {
+  .st-body {
+    font-family: var(--brand-font);
+    color: var(--brand-ink);
+    background: var(--brand-water-50);
+    -webkit-text-size-adjust: 100%;
+  }
+  .st-link { color: var(--brand-blue-text); text-decoration: underline; text-underline-offset: 2px; }
+  .st-link:hover { color: var(--brand-blue-dark); }
+
+  /* Botones: altura mínima 44 px (pulgar). */
+  .st-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    min-height: var(--brand-tap); padding: 0.5rem 1.1rem; border-radius: var(--brand-radius);
+    font-weight: 600; font-size: 1rem; line-height: 1.2; border: 2px solid transparent;
+    cursor: pointer; text-decoration: none; transition: background-color .15s, color .15s, border-color .15s;
+  }
+  .st-btn:focus-visible { outline: 3px solid var(--brand-blue); outline-offset: 2px; }
+  .st-btn[disabled], .st-btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+  .st-btn-primary { background: var(--brand-blue-text); color: #fff; }
+  .st-btn-primary:hover { background: var(--brand-blue-dark); }
+  .st-btn-dark { background: var(--brand-ink); color: #fff; }
+  .st-btn-dark:hover { background: var(--brand-gray-800); }
+  .st-btn-secondary { background: #fff; color: var(--brand-blue-text); border-color: var(--brand-blue-text); }
+  .st-btn-secondary:hover { background: var(--brand-water-50); }
+  .st-btn-ghost { background: transparent; color: var(--brand-ink); }
+  .st-btn-ghost:hover { background: var(--brand-water); }
+  .st-btn-danger { background: #fff; color: var(--brand-danger); border-color: var(--brand-danger); }
+  .st-btn-block { width: 100%; }
+
+  /* Campos */
+  .st-label { display: block; font-weight: 600; font-size: .95rem; margin-bottom: .25rem; }
+  .st-help { display: block; font-size: .85rem; color: var(--brand-gray-600); margin-top: .25rem; }
+  .st-error { display: block; font-size: .875rem; color: var(--brand-danger); margin-top: .25rem; font-weight: 600; }
+  .st-input, .st-select, .st-textarea {
+    display: block; width: 100%; min-height: var(--brand-tap); padding: .5rem .75rem;
+    border: 1px solid var(--brand-gray-400); border-radius: var(--brand-radius); background: #fff;
+    font-size: 1rem; color: var(--brand-ink);
+  }
+  .st-input:focus, .st-select:focus, .st-textarea:focus {
+    outline: 3px solid var(--brand-water-300); border-color: var(--brand-blue-text);
+  }
+  .st-input[aria-invalid="true"] { border-color: var(--brand-danger); }
+  .st-check { width: 1.25rem; height: 1.25rem; accent-color: var(--brand-blue-text); }
+
+  /* Tarjetas y superficies */
+  .st-card { background: #fff; border: 1px solid var(--brand-gray-200); border-radius: .75rem; }
+  .st-product-card { display: flex; flex-direction: column; overflow: hidden; }
+  .st-product-card img { aspect-ratio: 1 / 1; object-fit: cover; width: 100%; background: var(--brand-gray-50); }
+
+  /* Alertas */
+  .st-alert { border-radius: var(--brand-radius); padding: .75rem 1rem; border: 1px solid; font-size: .95rem; }
+  .st-alert-info { background: var(--brand-water-50); border-color: var(--brand-water-300); color: var(--brand-ink); }
+  .st-alert-success { background: var(--brand-success-bg); border-color: #b5dcc2; color: var(--brand-success); }
+  .st-alert-warning { background: var(--brand-warning-bg); border-color: #f0d68a; color: var(--brand-warning); }
+  .st-alert-error { background: var(--brand-danger-bg); border-color: #f2b8b3; color: var(--brand-danger); }
+
+  /* Badges de estado */
+  .st-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: .125rem .6rem; font-size: .8rem; font-weight: 600; }
+  .st-badge-ok { background: var(--brand-success-bg); color: var(--brand-success); }
+  .st-badge-wait { background: var(--brand-warning-bg); color: var(--brand-warning); }
+  .st-badge-off { background: var(--brand-gray-200); color: var(--brand-gray-800); }
+  .st-badge-info { background: var(--brand-water); color: var(--brand-ink); }
+  .st-badge-bad { background: var(--brand-danger-bg); color: var(--brand-danger); }
+
+  /* Tablas */
+  .st-table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  .st-table th { text-align: left; font-weight: 600; color: var(--brand-gray-600); border-bottom: 2px solid var(--brand-gray-200); padding: .5rem; }
+  .st-table td { border-bottom: 1px solid var(--brand-gray-200); padding: .6rem .5rem; vertical-align: top; }
+  .st-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* Grilla talle × color: se usa con el pulgar; la primera columna queda fija al desplazar. */
+  .st-grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .st-grid { border-collapse: separate; border-spacing: 0; min-width: 100%; }
+  .st-grid th, .st-grid td { padding: .35rem; text-align: center; }
+  .st-grid thead th { font-size: .85rem; font-weight: 600; color: var(--brand-gray-600); white-space: nowrap; }
+  .st-grid tbody th { position: sticky; left: 0; background: #fff; font-weight: 700; text-align: left; padding-right: .75rem; z-index: 1; }
+  .st-qty {
+    width: 4rem; height: 3rem; text-align: center; font-size: 1.15rem; font-weight: 600;
+    border: 1px solid var(--brand-gray-400); border-radius: var(--brand-radius); background: #fff;
+    -moz-appearance: textfield; appearance: textfield;
+  }
+  .st-qty::-webkit-outer-spin-button, .st-qty::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .st-qty:focus { outline: 3px solid var(--brand-water-300); border-color: var(--brand-blue-text); }
+  .st-qty.has-value { background: var(--brand-water); border-color: var(--brand-blue-text); }
+  .st-qty:disabled { background: var(--brand-gray-50); color: var(--brand-gray-400); border-style: dashed; }
+  .st-cell-out { font-size: .7rem; color: var(--brand-gray-600); display: block; margin-top: .1rem; }
+
+  /* Franja de aviso fija ("Estás armando un pedido para…") */
+  .st-banner { background: var(--brand-ink); color: #fff; }
+}

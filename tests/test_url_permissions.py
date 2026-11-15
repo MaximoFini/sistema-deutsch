@@ -5,7 +5,9 @@ from django.urls import URLPattern, URLResolver, get_resolver
 # Prefijos fuera del panel: admin de Django (solo superusuarios), health, webhooks (firma del canal).
 EXCLUDED_NAMESPACES = {"admin", "hooks", "tn_privacy"}
 EXCLUDED_NAMES = {"health"}
-VALID_ACCESS = {"login", "permission", "public", "webhook"}
+# M8: la tienda mayorista tiene su propio control (StoreAccessMixin = "store"; ingreso, registro,
+# recuperación y legales = "store_public").
+VALID_ACCESS = {"login", "permission", "public", "webhook", "store", "store_public"}
 
 
 def iter_patterns(patterns, namespace=None):
@@ -47,4 +49,26 @@ def test_public_views_are_only_auth_screens():
         "accounts:password_reset_done",
         "accounts:password_reset_confirm",
         "accounts:password_reset_complete",
+    }
+
+
+def test_store_public_views_are_only_auth_and_legal_screens():
+    """M8: sin sesión, la tienda muestra solo ingreso, registro, recuperación de contraseña y legales."""
+    public = {
+        f"{ns}:{p.name}"
+        for ns, p in iter_patterns(get_resolver().url_patterns)
+        if getattr(getattr(p.callback, "view_class", None), "panel_access", None) == "store_public"
+    }
+    assert public == {
+        "store:login",
+        "store:logout",
+        "store:register",
+        "store:register_done",
+        "store:pending",
+        "store:password_reset",
+        "store:password_reset_done",
+        "store:password_reset_confirm",
+        "store:password_reset_complete",
+        "store:terms",
+        "store:privacy",
     }

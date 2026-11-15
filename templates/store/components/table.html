@@ -1,0 +1,9 @@
+{# Tabla simple. Recibe `headers` (lista) y `rows` (lista de listas). Las columnas numéricas se indican con `numeric` (índices como texto, p. ej. "2,3"). #}
+<div class="overflow-x-auto">
+  <table class="st-table">
+    <thead><tr>{% for h in headers %}<th scope="col">{{ h }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      {% for row in rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+    </tbody>
+  </table>
+</div>

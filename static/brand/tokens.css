@@ -1,0 +1,48 @@
+/*
+ * Tokens de marca Deutsch (tienda mayorista, M8a).
+ *
+ * Fuente: Manual de Identidad Corporativa Deutsch (Drive › 01 Logo e Identidad de Marca) y el PDF
+ * "Logo Deutsch R 2020 Variantes":
+ *  - Azul Pantone 3005: #007DC5 (color del isotipo en el arte original del logo).
+ *  - Negro Pantone Black 6: #231F20 (color del logotipo en el arte original).
+ *  - Para la web el manual pide negro + un celeste "agua": se usan los tintes del azul que trae la
+ *    página de colores del manual (20 % #CBE6F5 y 5 % #F4FAFE).
+ *  - Tipografía: Myriad Pro en el manual (paga) y Calibri para la web; usamos Source Sans 3 (misma
+ *    familia humanista, libre) con Calibri y la sans del sistema de respaldo.
+ *
+ * Contraste (WCAG AA, 4,5:1 para texto normal), verificado:
+ *  - tinta #231F20 sobre blanco 16,3 · sobre agua #CBE6F5 12,6
+ *  - azul texto #00659F sobre blanco 6,3 · sobre agua-50 5,9 · blanco sobre azul botón 6,3
+ *  - el azul de marca #007DC5 da 4,4 sobre blanco: solo para el logo, bordes y textos grandes.
+ *  - gris texto #5B6670 sobre blanco 5,9 · estados: verde 5,7 · ámbar 6,6 · rojo 6,5
+ *
+ * Estas variables las expone Tailwind con `@theme` (assets/css/source.css): bg-brand-ink,
+ * text-brand-blue-text, bg-brand-water, font-brand, etc.
+ */
+:root {
+  --brand-ink: #231f20;
+  --brand-blue: #007dc5;
+  --brand-blue-text: #00659f;
+  --brand-blue-dark: #004f7c;
+  --brand-water: #cbe6f5;
+  --brand-water-50: #f4fafe;
+  --brand-water-300: #99cbe8;
+
+  --brand-white: #ffffff;
+  --brand-gray-50: #f6f7f8;
+  --brand-gray-200: #e3e7ea;
+  --brand-gray-400: #9aa3ab;
+  --brand-gray-600: #5b6670;
+  --brand-gray-800: #3a434b;
+
+  --brand-success: #1e6b3c;
+  --brand-success-bg: #e5f4ea;
+  --brand-warning: #7a4d00;
+  --brand-warning-bg: #fff3d1;
+  --brand-danger: #a3221a;
+  --brand-danger-bg: #fdebe9;
+
+  --brand-font: "Source Sans 3", Calibri, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --brand-radius: 0.5rem;
+  --brand-tap: 2.75rem; /* 44 px: tamaño mínimo de algo que se toca con el pulgar */
+}

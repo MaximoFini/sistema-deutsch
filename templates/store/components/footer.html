@@ -1,0 +1,14 @@
+{% load static %}{# Pie de la tienda con el slogan de marca. #}
+<footer class="mt-10 bg-brand-ink text-white">
+  <div class="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex items-center gap-3">
+      <img src="{% static 'brand/deutsch-logo-negativo.svg' %}" alt="Deutsch" class="h-7 w-auto" width="146" height="33">
+      <span class="text-sm font-semibold tracking-wide text-brand-water">Pasión por la natación</span>
+    </div>
+    <nav class="flex flex-wrap gap-x-5 gap-y-2 text-sm" aria-label="Información legal">
+      <a href="{% url 'store:terms' %}" class="text-white underline underline-offset-2 hover:text-brand-water">Términos de venta mayorista</a>
+      <a href="{% url 'store:privacy' %}" class="text-white underline underline-offset-2 hover:text-brand-water">Privacidad</a>
+      <span class="text-brand-water-300">© Deutsch</span>
+    </nav>
+  </div>
+</footer>

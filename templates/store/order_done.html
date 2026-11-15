@@ -1,0 +1,46 @@
+{% extends "store/base.html" %}
+{% load store %}
+{% block title %}Pedido {{ doc.number }} confirmado{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl">
+  <div class="st-card p-5 sm:p-8">
+    <p class="text-sm font-semibold uppercase tracking-wide text-brand-success">Pedido confirmado</p>
+    <h1 class="mt-1 text-2xl font-bold sm:text-3xl">¡Gracias! Tu pedido es el {{ doc.channel_reference }}</h1>
+    {% if order.on_behalf %}<p class="mt-1 text-sm text-brand-gray-600">Cargado por Deutsch.</p>{% endif %}
+
+    <div class="mt-4 rounded-lg bg-brand-water-50 p-4">
+      <h2 class="font-bold">Próximos pasos</h2>
+      <p class="mt-1">{{ next_steps }}</p>
+      {% if order.payment_method == "transfer" %}
+        {% if store.bank_details %}
+        <div class="mt-3">
+          <p class="font-semibold">Datos para transferir</p>
+          <p class="whitespace-pre-line">{{ store.bank_details }}</p>
+        </div>
+        {% endif %}
+        {% if order.expires_at %}<p class="mt-3 text-sm">Tenés tiempo hasta el <strong>{{ order.expires_at|date:"j \d\e F, H:i" }}</strong>.</p>{% endif %}
+      {% endif %}
+    </div>
+
+    <dl class="mt-5 grid gap-2 text-sm sm:grid-cols-2">
+      <div><dt class="text-brand-gray-600">Entrega</dt><dd class="font-semibold">{% if shipment.method == "pickup" %}Retiro en el local{% else %}Envío por expreso: {{ shipment.carrier_name }}{% endif %}</dd></div>
+      <div><dt class="text-brand-gray-600">Pago</dt><dd class="font-semibold">{{ order.get_payment_method_display }}</dd></div>
+    </dl>
+
+    <table class="st-table mt-5">
+      <thead><tr><th>Producto</th><th class="st-num">Cant.</th><th class="st-num">Total</th></tr></thead>
+      <tbody>
+        {% for line in lines %}<tr><td>{{ line.description_snapshot }}</td><td class="st-num">{{ line.quantity|floatformat:0 }}</td><td class="st-num">{{ line.line_total|money }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    <dl class="mt-3 space-y-1">
+      <div class="flex justify-between"><dt>Subtotal sin IVA</dt><dd class="st-num">{{ doc.subtotal|money }}</dd></div>
+      <div class="flex justify-between"><dt>IVA</dt><dd class="st-num">{{ doc.tax_total|money }}</dd></div>
+      {% if doc.discount_total %}<div class="flex justify-between text-brand-success"><dt>Saldo a favor</dt><dd class="st-num">− {{ doc.discount_total|money }}</dd></div>{% endif %}
+      <div class="flex justify-between text-lg font-bold"><dt>Total</dt><dd class="st-num">{{ doc.total|money }}</dd></div>
+    </dl>
+    <p class="mt-4 text-sm text-brand-gray-600">Te mandamos un email con el detalle. La factura te llega por email desde Contabilium.</p>
+    <div class="mt-5">{% url "store:home" as home_url %}{% include "store/components/button.html" with label="Volver al catálogo" href=home_url variant="secondary" block=True %}</div>
+  </div>
+</div>
+{% endblock %}

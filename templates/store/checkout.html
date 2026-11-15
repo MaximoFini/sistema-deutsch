@@ -1,0 +1,99 @@
+{% extends "store/base.html" %}
+{% load store %}
+{% block title %}Entrega y pago{% endblock %}
+{% block content %}
+<nav class="mb-3 text-sm"><a href="{% url 'store:cart' %}" class="st-link">← Volver al carrito</a></nav>
+<h1 class="mb-4 text-2xl font-bold sm:text-3xl">Entrega y pago</h1>
+
+{% if changes %}
+<div class="st-alert st-alert-warning mb-4" role="alert">
+  <p class="font-semibold">Algo cambió desde que armaste el carrito. Ya lo ajustamos:</p>
+  <ul class="mt-2 list-disc space-y-1 pl-5">{% for change in changes %}<li>{{ change }}</li>{% endfor %}</ul>
+  <p class="mt-2">Revisá el resumen y confirmá de nuevo.</p>
+</div>
+{% endif %}
+{% for error in form.non_field_errors %}<div class="mb-4">{% include "store/components/alert.html" with kind="error" text=error %}</div>{% endfor %}
+
+<form method="post" class="grid gap-6 lg:grid-cols-3" novalidate data-checkout>{% csrf_token %}
+  {{ form.snapshot }}
+  <div class="space-y-6 lg:col-span-2">
+    <div class="st-card p-5"><fieldset>
+      <legend class="text-lg font-bold">{{ form.delivery.label }}</legend>
+      <div class="mt-2 space-y-2">
+        {% for radio in form.delivery %}
+        <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-brand-gray-200 p-3 has-[:checked]:border-brand-blue-text has-[:checked]:bg-brand-water-50">
+          {{ radio.tag }} <span>{{ radio.choice_label }}</span>
+        </label>
+        {% endfor %}
+        {% for error in form.delivery.errors %}<span class="st-error">{{ error }}</span>{% endfor %}
+      </div>
+      <div class="mt-4" data-carrier-field>
+        {% if form.has_carriers %}
+          {% include "store/components/field.html" with field=form.carrier %}
+        {% else %}
+          <p class="st-help">Todavía no hay expresos cargados: elegí retiro en el local o escribinos.</p>
+        {% endif %}
+      </div>
+    </fieldset></div>
+
+    <div class="st-card p-5"><fieldset>
+      <legend class="text-lg font-bold">{{ form.payment.label }}</legend>
+      <div class="mt-2 space-y-2">
+        {% for radio in form.payment %}
+        <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-brand-gray-200 p-3 has-[:checked]:border-brand-blue-text has-[:checked]:bg-brand-water-50" data-payment="{{ radio.data.value }}">
+          {{ radio.tag }} <span>{{ radio.choice_label }}</span>
+        </label>
+        {% endfor %}
+        {% for error in form.payment.errors %}<span class="st-error">{{ error }}</span>{% endfor %}
+      </div>
+      <p class="st-help">El efectivo es solo para retirar en el local.{% if not credit_enabled %} La cuenta corriente la habilita Deutsch a pedido.{% endif %}</p>
+      {% if store.bank_details %}
+      <div class="mt-3 rounded-lg bg-brand-water-50 p-3 text-sm" data-bank>
+        <p class="font-semibold">Datos para transferir</p>
+        <p class="whitespace-pre-line">{{ store.bank_details }}</p>
+      </div>
+      {% endif %}
+    </fieldset></div>
+
+    <div class="st-card p-5">{% include "store/components/field.html" with field=form.notes %}</div>
+  </div>
+
+  <aside class="st-card h-fit p-5">
+    <h2 class="mb-3 text-lg font-bold">Tu pedido</h2>
+    <ul class="mb-3 space-y-1 text-sm">
+      {% for line in summary.lines %}<li class="flex justify-between gap-2"><span>{{ line.quantity }} × {{ line.variant.product.name }} {{ line.label }}</span><span class="st-num">{{ line.total|money }}</span></li>{% endfor %}
+    </ul>
+    <dl class="space-y-2 border-t border-brand-gray-200 pt-3">
+      <div class="flex justify-between"><dt>Subtotal sin IVA</dt><dd class="st-num">{{ summary.subtotal|money }}</dd></div>
+      <div class="flex justify-between"><dt>IVA 21 %</dt><dd class="st-num">{{ summary.vat|money }}</dd></div>
+      {% if summary.balance_applied %}<div class="flex justify-between text-brand-success"><dt>Saldo a favor</dt><dd class="st-num">− {{ summary.balance_applied|money }}</dd></div>{% endif %}
+      <div class="flex justify-between border-t border-brand-gray-200 pt-2 text-lg font-bold"><dt>Total</dt><dd class="st-num">{{ summary.total|money }}</dd></div>
+    </dl>
+    <p class="st-help">El flete del expreso lo pagás vos al recibir.</p>
+    <div class="mt-4">{% include "store/components/button.html" with label="Confirmar el pedido" block=True %}</div>
+  </aside>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Muestra el expreso solo con envío y oculta el efectivo si no es retiro (el servidor lo valida igual).
+  (function () {
+    var form = document.querySelector("form[data-checkout]");
+    if (!form) return;
+    function sync() {
+      var d = form.querySelector("input[name=delivery]:checked");
+      var pickup = d && d.value === "pickup";
+      var carrier = form.querySelector("[data-carrier-field]");
+      if (carrier) carrier.hidden = !!pickup;
+      var cash = form.querySelector("[data-payment=cash]");
+      if (cash) {
+        cash.hidden = !pickup;
+        var input = cash.querySelector("input");
+        if (!pickup && input && input.checked) input.checked = false;
+      }
+    }
+    form.addEventListener("change", sync);
+    sync();
+  })();
+</script>
+{% endblock %}

@@ -562,3 +562,82 @@ def test_reports_excel_50000_rows_under_ten_seconds():
     assert best < time_limit(10.0)
     ws = load_workbook(io.BytesIO(content), read_only=True)["Ventas"]
     assert ws.max_row == 50_003  # nota + encabezados + filas + totales
+
+
+# ── M8a · Tienda mayorista: catálogo con 1.000 productos y 5.000 variantes ────
+
+STORE_PRODUCTS = 1000
+STORE_VARIANTS_PER_PRODUCT = 5
+# Consultas: sesión y usuario, cuenta del cliente, configuración, lista de precios, depósito, conteo,
+# página, variantes (prefetch) y carrito; las opciones de filtro salen de la caché. Medido: 11 (0,09 s).
+STORE_CATALOG_BUDGET = 14
+
+
+def _store_volume():
+    from apps.inventory.models import StockLevel
+    from apps.inventory.services import default_warehouse
+
+    now = timezone.now()
+    products = Product.objects.bulk_create(
+        [
+            Product(name=f"Producto tienda {i:04d}", categories=[f"Cat {i % 12}"], brand="Deutsch")
+            for i in range(STORE_PRODUCTS)
+        ]
+    )
+    sizes, colors = ["S", "M", "L", "XL", "XXL"], ["Azul", "Negro"]
+    variants = Variant.objects.bulk_create(
+        [
+            Variant(
+                product=p,
+                sku=f"T-{i:04d}-{k}",
+                attributes={"Talle": sizes[k], "Color": colors[(i + k) % 2]},
+            )
+            for i, p in enumerate(products)
+            for k in range(STORE_VARIANTS_PER_PRODUCT)
+        ]
+    )
+    wholesale = PriceList.objects.get(code="MAYORISTA")
+    PriceListItem.objects.bulk_create(
+        [
+            PriceListItem(price_list=wholesale, variant=v, price=Decimal("9000"), valid_from=now)
+            for v in variants
+        ]
+    )
+    warehouse = default_warehouse()
+    StockLevel.objects.bulk_create(
+        [
+            StockLevel(variant=v, warehouse=warehouse, on_hand=(i % 7), reserved=(i % 3))
+            for i, v in enumerate(variants)
+        ]
+    )
+
+
+def test_store_catalog_1000_products_under_1s(db, admin_user, django_assert_max_num_queries):
+    from django.test import Client
+
+    from apps.wholesale import accounts as store_accounts
+
+    _store_volume()
+    data = {
+        "cuit": "30712345671",
+        "legal_name": "Cliente Volumen SA",
+        "vat_condition": "RI",
+        "email": "volumen@test.local",
+    }
+    account = store_accounts.register(data=data, password="Clave-de-volumen-2026")
+    store_accounts.approve(account, user=admin_user)
+    client = Client()
+    client.force_login(account.user)
+    url = reverse("store:home")
+    for params in ["", "?talle=M&categoria=Cat+3", "?q=T-05&page=2"]:
+        assert client.get(url + params).status_code == 200  # calienta sesión y caché de filtros
+        best = None
+        for _ in range(TIME_RUNS):
+            start = time.perf_counter()
+            with django_assert_max_num_queries(STORE_CATALOG_BUDGET):
+                response = client.get(url + params)
+            elapsed = time.perf_counter() - start
+            best = elapsed if best is None else min(best, elapsed)
+        assert response.status_code == 200
+        assert best < time_limit(1.0), f"catálogo {params or '(todo)'}: {best:.2f} s"
+    assert response.context["page_obj"].paginator.count > 0

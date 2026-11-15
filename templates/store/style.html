@@ -1,0 +1,127 @@
+{% extends "store/base.html" %}
+{% load static store %}
+{% block title %}Sistema de diseño{% endblock %}
+{% block content %}
+<div class="space-y-10">
+  <header>
+    <p class="text-sm font-semibold uppercase tracking-wide text-brand-blue-text">Solo usuarios internos</p>
+    <h1 class="text-3xl font-bold">Sistema de diseño de la tienda mayorista</h1>
+    <p class="mt-1 max-w-3xl text-brand-gray-600">Colores, tipografía, logo y componentes tomados del Manual de Identidad Corporativa de Deutsch. Esta página sirve para validarlos con Deutsch; el panel interno los puede adoptar después.</p>
+  </header>
+
+  <section>
+    <h2 class="mb-3 text-xl font-bold">Logo</h2>
+    <p class="mb-3 text-sm text-brand-gray-600">Extraído en vectores (SVG) del PDF «Logo Deutsch R 2020 Variantes». Área de seguridad: una «D» alrededor. Tamaño mínimo: 10 mm de ancho (en pantalla, 28 px de alto como mínimo en el encabezado).</p>
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="st-card flex h-32 items-center justify-center p-6"><img src="{% static 'brand/deutsch-logo.svg' %}" alt="Logo principal" class="h-10"></div>
+      <div class="flex h-32 items-center justify-center rounded-xl bg-brand-ink p-6"><img src="{% static 'brand/deutsch-logo-negativo.svg' %}" alt="Logo negativo para fondos oscuros" class="h-10"></div>
+      <div class="flex h-32 items-center justify-center rounded-xl bg-brand-blue p-6"><img src="{% static 'brand/deutsch-logo-blanco.svg' %}" alt="Logo blanco sobre azul" class="h-10"></div>
+      <div class="st-card flex h-32 items-center justify-center gap-6 p-6"><img src="{% static 'brand/deutsch-logo-vertical.svg' %}" alt="Logo vertical" class="h-20"><img src="{% static 'brand/deutsch-isotipo.svg' %}" alt="Isotipo" class="h-12"></div>
+    </div>
+    <p class="mt-3 text-sm">La marca se escribe siempre «Deutsch» (ni «DEUTSCH» ni «deutsch»). Slogan: «Pasión por la natación».</p>
+  </section>
+
+  <section>
+    <h2 class="mb-3 text-xl font-bold">Colores</h2>
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      {% for name, var, hex, fg in swatches %}
+      <div class="st-card overflow-hidden">
+        <div class="flex h-20 items-end p-2 text-sm font-semibold" style="background: var({{ var }}); color: {% if fg == 'white' %}#fff{% else %}var(--brand-ink){% endif %};">Aa texto</div>
+        <div class="p-2 text-sm"><div class="font-semibold">{{ name }}</div><code class="text-xs">{{ var }} · {{ hex }}</code></div>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="mt-3 text-sm text-brand-gray-600">Contraste AA verificado: tinta sobre blanco 16,3:1; azul de texto sobre blanco 6,3:1; blanco sobre botón azul 6,3:1; gris de texto 5,9:1; estados ≥ 5,7:1. El azul de marca #007DC5 (4,4:1) se usa solo en el logo, bordes y textos grandes.</p>
+  </section>
+
+  <section>
+    <h2 class="mb-3 text-xl font-bold">Tipografía</h2>
+    <div class="st-card space-y-2 p-5">
+      <p class="text-3xl font-bold">Source Sans 3 Bold — Pasión por la natación</p>
+      <p class="text-xl font-semibold">Source Sans 3 Semibold — Malla de entrenamiento</p>
+      <p>Source Sans 3 Regular — El manual usa Myriad Pro (paga) y Calibri para la web. Source Sans 3 es de la misma familia humanista, libre, y cae en Calibri si no carga.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="mb-3 text-xl font-bold">Botones</h2>
+    <div class="flex flex-wrap gap-3">
+      {% include "store/components/button.html" with label="Principal" type="button" %}
+      {% include "store/components/button.html" with label="Secundario" variant="secondary" type="button" %}
+      {% include "store/components/button.html" with label="Oscuro" variant="dark" type="button" %}
+      {% include "store/components/button.html" with label="Discreto" variant="ghost" type="button" %}
+      {% include "store/components/button.html" with label="Peligro" variant="danger" type="button" %}
+      {% include "store/components/button.html" with label="Deshabilitado" type="button" disabled=True %}
+    </div>
+  </section>
+
+  <section>
+    <h2 class="mb-3 text-xl font-bold">Campos de formulario</h2>
+    <div class="st-card grid max-w-2xl gap-4 p-5 sm:grid-cols-2">
+      {% include "store/components/field.html" with field=demo_form.legal_name %}
+      {% include "store/components/field.html" with field=demo_form.cuit %}
+      {% include "store/components/field.html" with field=demo_form.vat_condition %}
+      {% include "store/components/field.html" with field=demo_form.trade_name %}
+      <div class="sm:col-span-2">{% include "store/components/field.html" with field=demo_form.accept_terms %}</div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="mb-3 text-xl font-bold">Alertas y estados</h2>
+    <div class="grid max-w-2xl gap-2">
+      {% include "store/components/alert.html" with kind="info" text="Información: te avisamos por email cuando aprobemos tu cuenta." %}
+      {% include "store/components/alert.html" with kind="success" text="Listo, actualizamos tu carrito." %}
+      {% include "store/components/alert.html" with kind="warning" text="Te faltan $ 45.000,00 para llegar al mínimo de compra." %}
+      {% include "store/components/alert.html" with kind="error" text="El CUIT no es válido: revisá los 11 números" %}
+    </div>
+    <div class="mt-3 flex flex-wrap gap-2">
+      {% include "store/components/status_badge.html" with label="Disponible" tone="ok" %}
+      {% include "store/components/status_badge.html" with label="Esperando tu pago" tone="wait" %}
+      {% include "store/components/status_badge.html" with label="En preparación" tone="info" %}
+      {% include "store/components/status_badge.html" with label="Agotado" tone="off" %}
+      {% include "store/components/status_badge.html" with label="Cancelado" tone="bad" %}
+    </div>
+  </section>
+
+  <section>
+    <h2 class="mb-3 text-xl font-bold">Tarjeta de producto</h2>
+    <div class="grid max-w-xl grid-cols-2 gap-3">
+      <div class="st-card st-product-card">
+        <div class="flex aspect-square items-center justify-center bg-brand-water-50 text-sm text-brand-gray-600">Foto de Tiendanube</div>
+        <div class="flex flex-col gap-1 p-3"><span class="text-sm font-semibold">Malla de entrenamiento</span><span class="text-base font-bold">$ 12.500,00</span><span class="text-xs text-brand-gray-600">+ IVA 21 %</span><span class="pt-1">{% include "store/components/status_badge.html" with label="Disponible" tone="ok" %}</span></div>
+      </div>
+      <div class="st-card st-product-card">
+        <div class="flex aspect-square items-center justify-center bg-brand-water-50 text-sm text-brand-gray-600 opacity-60">Foto de Tiendanube</div>
+        <div class="flex flex-col gap-1 p-3"><span class="text-sm font-semibold">Antiparras T-eco Flex</span><span class="text-base font-bold">$ 8.900,00</span><span class="text-xs text-brand-gray-600">+ IVA 21 %</span><span class="pt-1">{% include "store/components/status_badge.html" with label="Agotado" tone="off" %}</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="mb-3 text-xl font-bold">Grilla talle × color</h2>
+    <form class="st-card max-w-xl p-4" data-grid-form onsubmit="return false">
+      {% include "store/components/size_grid.html" with grid=demo_grid %}
+      <div class="mt-3 flex justify-between border-t border-brand-gray-200 pt-3"><span data-grid-units>0 unidades</span><strong data-grid-subtotal>$ 0,00</strong></div>
+    </form>
+  </section>
+
+  <section>
+    <h2 class="mb-3 text-xl font-bold">Tabla</h2>
+    <div class="st-card max-w-2xl p-4">
+      <table class="st-table">
+        <thead><tr><th>Pedido</th><th>Estado</th><th class="st-num">Total</th></tr></thead>
+        <tbody>
+          <tr><td>Mayorista #1042</td><td>{% include "store/components/status_badge.html" with label="En preparación" tone="info" %}</td><td class="st-num">$ 352.100,00</td></tr>
+          <tr><td>Mayorista #1038</td><td>{% include "store/components/status_badge.html" with label="Entregado" tone="ok" %}</td><td class="st-num">$ 410.000,00</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="mb-3 text-xl font-bold">Encabezado, pie y paginador</h2>
+    <p class="text-sm text-brand-gray-600">El encabezado y el pie de esta misma página son los componentes reales (<code>store/components/header.html</code> y <code>footer.html</code>). El paginador aparece en el catálogo cuando hay más de 24 productos.</p>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{% static 'store/grid.js' %}" defer></script>{% endblock %}

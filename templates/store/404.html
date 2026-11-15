@@ -1,0 +1,7 @@
+{% extends "store/_auth_base.html" %}
+{% block title %}No encontramos la página{% endblock %}
+{% block heading %}No encontramos esa página{% endblock %}
+{% block auth %}
+<p>Puede que el enlace esté mal escrito o que el producto ya no esté a la venta.</p>
+<div class="mt-5">{% url "store:home" as home_url %}{% include "store/components/button.html" with label="Ir al catálogo" href=home_url block=True %}</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Clientes mayoristas · Sistema Deutsch{% endblock %}
+{% block content %}
+<h1 class="mb-3 text-xl font-semibold">Tienda mayorista</h1>
+{% include "wholesale/_tabs.html" with active="customers" %}
+<div class="mb-4 flex flex-wrap items-center gap-3">
+  <div class="flex flex-wrap gap-2 text-sm">
+    {% for code, label, count in tabs %}
+      <a href="?estado={{ code }}" class="rounded-full border px-3 py-1 {% if code == status %}border-stone-900 bg-stone-900 text-white{% else %}border-stone-300 bg-white hover:bg-stone-100{% endif %}">{{ label }} ({{ count }})</a>
+    {% endfor %}
+  </div>
+  <form method="get" class="ml-auto flex gap-2">
+    <input type="hidden" name="estado" value="{{ status }}">
+    <input type="search" name="q" value="{{ q }}" placeholder="Nombre, CUIT o email" class="rounded border border-stone-300 px-3 py-1.5 text-sm">
+    <button class="rounded bg-stone-900 px-3 py-1.5 text-sm text-white">Buscar</button>
+  </form>
+</div>
+<div class="overflow-x-auto rounded-lg border border-stone-200 bg-white">
+  <table class="w-full text-sm">
+    <thead class="bg-stone-50 text-left text-stone-600">
+      <tr><th class="px-3 py-2">Cliente</th><th class="px-3 py-2">CUIT</th><th class="px-3 py-2">Email</th><th class="px-3 py-2">Registro</th><th class="px-3 py-2">Cuenta corriente</th></tr>
+    </thead>
+    <tbody class="divide-y divide-stone-100">
+      {% for a in accounts %}
+      <tr class="hover:bg-stone-50">
+        <td class="px-3 py-2"><a href="{% url 'wholesale_customers:detail' a.pk %}" class="font-medium underline">{{ a.display_name }}</a></td>
+        <td class="px-3 py-2 tabular-nums">{{ a.cuit }}</td>
+        <td class="px-3 py-2">{{ a.user.email }}</td>
+        <td class="px-3 py-2">{{ a.created_at|date:"d/m/Y H:i" }}</td>
+        <td class="px-3 py-2">{% if a.credit_enabled %}Sí{% else %}No{% endif %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="px-3 py-6 text-center text-stone-500">{% if status == "pending" %}No hay registros pendientes.{% else %}No hay clientes en esta lista.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "_pagination.html" with noun="clientes" %}
+{% endblock %}

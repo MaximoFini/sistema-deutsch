@@ -1,0 +1,2 @@
+{# Botón o enlace con forma de botón. `label`, `variant` (primary|secondary|dark|ghost|danger), `href` o `type`, `block`. #}
+{% if href %}<a href="{{ href }}" class="st-btn st-btn-{{ variant|default:'primary' }}{% if block %} st-btn-block{% endif %}">{{ label }}</a>{% else %}<button type="{{ type|default:'submit' }}" class="st-btn st-btn-{{ variant|default:'primary' }}{% if block %} st-btn-block{% endif %}"{% if name %} name="{{ name }}" value="{{ value }}"{% endif %}{% if disabled %} disabled{% endif %}>{{ label }}</button>{% endif %}

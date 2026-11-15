@@ -1,0 +1,63 @@
+{% extends "store/base.html" %}
+{% block title %}Catálogo{% endblock %}
+{% block content %}
+<div class="mb-4 flex flex-wrap items-end justify-between gap-2">
+  <div>
+    <h1 class="text-2xl font-bold sm:text-3xl">Catálogo mayorista</h1>
+    <p class="text-sm text-brand-gray-600">Precios por unidad, sin IVA (+ IVA 21 %).</p>
+  </div>
+  <span class="text-sm text-brand-gray-600">{{ page_obj.paginator.count }} producto{{ page_obj.paginator.count|pluralize }}</span>
+</div>
+
+<details class="st-card mb-5 p-4 sm:open:p-4" {% if filters.active %}open{% endif %}>
+  <summary class="cursor-pointer select-none font-semibold">Filtrar{% if filters.active %} <span class="st-badge st-badge-info">activos</span>{% endif %}</summary>
+  <form method="get" class="mt-4 grid gap-4 sm:grid-cols-4">
+    <div class="sm:col-span-4">
+      <label for="f-q" class="st-label">Nombre o código</label>
+      <input id="f-q" type="search" name="q" value="{{ filters.q }}" class="st-input">
+    </div>
+    <div>
+      <label for="f-cat" class="st-label">Categoría</label>
+      <select id="f-cat" name="categoria" class="st-select">
+        <option value="">Todas</option>
+        {% for c in options.categories %}<option value="{{ c }}" {% if c == filters.category %}selected{% endif %}>{{ c }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="f-brand" class="st-label">Marca</label>
+      <select id="f-brand" name="marca" class="st-select">
+        <option value="">Todas</option>
+        {% for b in options.brands %}<option value="{{ b }}" {% if b == filters.brand %}selected{% endif %}>{{ b }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="f-size" class="st-label">Talle</label>
+      <select id="f-size" name="talle" class="st-select">
+        <option value="">Todos</option>
+        {% for s in options.sizes %}<option value="{{ s }}" {% if s == filters.size %}selected{% endif %}>{{ s }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="flex items-end gap-2">
+      <button class="st-btn st-btn-primary flex-1">Aplicar</button>
+      {% if filters.active %}<a href="{% url 'store:home' %}" class="st-btn st-btn-ghost">Limpiar</a>{% endif %}
+    </div>
+  </form>
+</details>
+
+{% if products %}
+<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+  {% for product in products %}{% include "store/components/product_card.html" %}{% endfor %}
+</div>
+{% include "store/components/paginator.html" %}
+{% else %}
+<div class="st-card p-6 text-center">
+  {% if filters.active %}
+    <p class="font-semibold">No encontramos productos con esos filtros.</p>
+    <p class="mt-1 text-brand-gray-600">Probá con otra palabra o <a href="{% url 'store:home' %}" class="st-link">mirá todo el catálogo</a>.</p>
+  {% else %}
+    <p class="font-semibold">Todavía no hay productos con precio mayorista.</p>
+    <p class="mt-1 text-brand-gray-600">Volvé a pasar en un rato.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

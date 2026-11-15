@@ -1,0 +1,8 @@
+{% extends "store/_auth_base.html" %}
+{% block title %}Registro recibido{% endblock %}
+{% block heading %}¡Recibimos tu registro!{% endblock %}
+{% block auth %}
+<p class="text-lg">Te avisamos por email cuando aprobemos tu cuenta.</p>
+<p class="mt-3 text-brand-gray-600">Revisamos cada registro a mano para cuidar los precios mayoristas. Si nos falta algún dato, te escribimos.</p>
+<div class="mt-5">{% url "store:login" as login_url %}{% include "store/components/button.html" with label="Ir al ingreso" href=login_url variant="secondary" block=True %}</div>
+{% endblock %}

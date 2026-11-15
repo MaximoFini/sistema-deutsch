@@ -1,0 +1,36 @@
+{% load static tailwind_cli %}<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Tienda mayorista{% endblock %} · Deutsch</title>
+  <link rel="icon" href="{% static 'brand/deutsch-isotipo.svg' %}" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  {% tailwind_css %}
+  <meta name="theme-color" content="#231F20">
+</head>
+<body class="st-body flex min-h-screen flex-col">
+  {% if shopper.acting %}
+  <div class="st-banner sticky top-0 z-30">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm">
+      <span>Estás armando un pedido para «<strong>{{ shopper.account.display_name }}</strong>»</span>
+    </div>
+  </div>
+  {% endif %}
+  {% include "store/components/header.html" %}
+  <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-5 sm:py-8">
+    {% if messages %}
+      <div class="mb-5 space-y-2" role="status">
+        {% for message in messages %}
+          {% include "store/components/alert.html" with kind=message.tags text=message %}
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  {% include "store/components/footer.html" %}
+  {% block scripts %}{% endblock %}
+</body>
+</html>

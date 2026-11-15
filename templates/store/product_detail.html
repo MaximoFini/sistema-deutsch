@@ -1,0 +1,68 @@
+{% extends "store/base.html" %}
+{% load static store %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block content %}
+<nav class="mb-3 text-sm" aria-label="Volver"><a href="{% url 'store:home' %}" class="st-link">← Catálogo</a></nav>
+<div class="grid gap-6 lg:grid-cols-5">
+  <section class="lg:col-span-2">
+    {% if images %}
+      <img src="{{ images.0.url }}" alt="{{ images.0.alt|default:product.name }}" class="st-card aspect-square w-full object-cover" width="600" height="600">
+      {% if images|length > 1 %}
+      <div class="mt-2 flex gap-2 overflow-x-auto pb-1">
+        {% for img in images|slice:"1:" %}<img src="{{ img.url }}" alt="{{ img.alt|default:product.name }}" loading="lazy" class="h-20 w-20 shrink-0 rounded-lg border border-brand-gray-200 object-cover" width="80" height="80">{% endfor %}
+      </div>
+      {% endif %}
+    {% else %}
+      <div class="st-card flex h-32 items-center justify-center text-brand-gray-600 lg:aspect-square lg:h-auto">Sin foto</div>
+    {% endif %}
+  </section>
+
+  <section class="lg:col-span-3">
+    <h1 class="text-2xl font-bold sm:text-3xl">{{ product.name }}</h1>
+    <p class="mt-1 text-sm text-brand-gray-600">{{ product.brand }}{% if product.categories %} · {{ product.categories|join:", " }}{% endif %}</p>
+
+    <form method="post" action="{% url 'store:add_to_cart' product.pk %}" class="st-card mt-4 p-4" data-grid-form>{% csrf_token %}
+      <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="text-lg font-bold">Elegí las cantidades</h2>
+        <span class="text-sm text-brand-gray-600">Por unidad, precio sin IVA</span>
+      </div>
+      <p class="mb-3 text-sm">{% for price in prices %}{% if not forloop.first %} · {% endif %}<strong>{{ price|money }}</strong>{% endfor %} <span class="text-brand-gray-600">+ IVA {{ vat_rate|floatformat:0 }} %</span></p>
+      {% if grid.any_available %}
+        {% include "store/components/size_grid.html" %}
+        {% if grid.others %}
+        <div class="mt-4 space-y-2">
+          <p class="text-sm font-semibold">Otras variantes</p>
+          {% for cell in grid.others %}
+          <label class="flex items-center justify-between gap-3">
+            <span>{{ cell.variant|attrs }} <span class="text-sm text-brand-gray-600">({{ cell.net|money }})</span></span>
+            <input type="number" inputmode="numeric" min="0" step="1" name="qty-{{ cell.variant.pk }}" value="{% if cell.in_cart %}{{ cell.in_cart }}{% endif %}" max="{{ cell.available }}" data-price="{{ cell.net|stringformat:'s' }}" class="st-qty" {% if cell.sold_out %}disabled placeholder="–"{% else %}placeholder="0"{% endif %}>
+          </label>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <div class="sticky bottom-0 z-10 -mx-4 -mb-4 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-b-xl border-t border-brand-gray-200 bg-white px-4 py-3">
+          <div>
+            <div class="text-sm text-brand-gray-600" data-grid-units>0 unidades</div>
+            <div class="text-lg font-bold"><span data-grid-subtotal>$ 0,00</span> <span class="text-sm font-normal text-brand-gray-600">+ IVA</span></div>
+          </div>
+          <div class="flex gap-2">
+            <button class="st-btn st-btn-secondary" name="next" value="product">Guardar</button>
+            <button class="st-btn st-btn-primary" name="next" value="cart">Agregar e ir al carrito</button>
+          </div>
+        </div>
+      {% else %}
+        {% include "store/components/alert.html" with kind="info" text="Este producto está agotado por ahora." %}
+      {% endif %}
+    </form>
+
+    {% if product.description %}
+    <section class="mt-6">
+      <h2 class="mb-2 text-lg font-bold">Descripción</h2>
+      {# La descripción viene de Tiendanube (HTML). Se muestra como texto para no ejecutar nada ajeno. #}
+      <div class="leading-relaxed text-brand-gray-800">{{ product.description|striptags|linebreaks }}</div>
+    </section>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{% static 'store/grid.js' %}" defer></script>{% endblock %}

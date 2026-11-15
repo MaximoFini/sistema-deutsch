@@ -1,0 +1,7 @@
+{% extends "store/_auth_base.html" %}
+{% block title %}Sin acceso{% endblock %}
+{% block heading %}No podés ver esta página{% endblock %}
+{% block auth %}
+<p>Esta parte no está disponible para tu cuenta. Si creés que es un error, escribinos.</p>
+<div class="mt-5">{% url "store:home" as home_url %}{% include "store/components/button.html" with label="Ir al catálogo" href=home_url block=True %}</div>
+{% endblock %}

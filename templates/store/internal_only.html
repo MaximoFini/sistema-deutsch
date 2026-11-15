@@ -1,0 +1,12 @@
+{% extends "store/_auth_base.html" %}
+{% block title %}Tienda mayorista{% endblock %}
+{% block heading %}La tienda es para clientes mayoristas{% endblock %}
+{% block auth %}
+<p>Entraste con un usuario interno de Deutsch. Los usuarios internos no compran como clientes.</p>
+{% if perms.wholesale.order_on_behalf %}
+<p class="mt-3">Para armar el pedido que te pasó un cliente vas a usar «Pedido en nombre de un cliente» (próximamente).</p>
+{% endif %}
+<div class="mt-5 flex flex-col gap-2">
+  {% url "core:home" as panel_url %}{% if panel_url %}{% include "store/components/button.html" with label="Volver al panel" href=panel_url variant="secondary" block=True %}{% endif %}
+</div>
+{% endblock %}

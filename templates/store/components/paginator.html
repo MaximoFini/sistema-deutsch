@@ -1,0 +1,8 @@
+{# Paginador que conserva los filtros. Recibe page_obj y querystring. #}
+{% if page_obj.has_other_pages %}
+<nav class="mt-8 flex items-center justify-center gap-2" aria-label="Páginas">
+  {% if page_obj.has_previous %}<a class="st-btn st-btn-secondary" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.previous_page_number }}" rel="prev">Anterior</a>{% endif %}
+  <span class="px-2 text-sm text-brand-gray-600">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a class="st-btn st-btn-secondary" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ page_obj.next_page_number }}" rel="next">Siguiente</a>{% endif %}
+</nav>
+{% endif %}

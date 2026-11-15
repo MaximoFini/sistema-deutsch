@@ -1,0 +1,21 @@
+{% extends "store/_auth_base.html" %}
+{% block title %}Ingresar{% endblock %}
+{% block heading %}Tienda mayorista{% endblock %}
+{% block intro %}<p class="text-brand-gray-600">Ingresá con el email y la contraseña de tu cuenta mayorista.</p>{% endblock %}
+{% block auth %}
+<form method="post" class="space-y-4" novalidate>{% csrf_token %}
+  {% for error in form.non_field_errors %}{% include "store/components/alert.html" with kind="error" text=error %}{% endfor %}
+  {% include "store/components/field.html" with field=form.username %}
+  {% include "store/components/field.html" with field=form.password %}
+  <input type="hidden" name="next" value="{{ next }}">
+  {% include "store/components/button.html" with label="Ingresar" block=True %}
+</form>
+<p class="mt-4 text-center text-sm"><a href="{% url 'store:password_reset' %}" class="st-link">Me olvidé la contraseña</a></p>
+{% endblock %}
+{% block after %}
+<div class="mt-6 rounded-lg bg-brand-water p-4 text-center">
+  <p class="font-semibold">¿Todavía no tenés cuenta?</p>
+  <p class="mb-3 text-sm">Registrate con tu CUIT y te avisamos por email cuando la aprobemos.</p>
+  {% url "store:register" as register_url %}{% include "store/components/button.html" with label="Registrarme" href=register_url variant="secondary" %}
+</div>
+{% endblock %}

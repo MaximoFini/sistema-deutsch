@@ -1,0 +1,16 @@
+{% load store %}{# Tarjeta de producto del catálogo. Recibe `product` (con image, price_from, price_varies, has_available). #}
+<a href="{% url 'store:product' product.pk %}" class="st-card st-product-card group focus-visible:outline-3 focus-visible:outline-brand-blue">
+  {% if product.image %}
+    <img src="{{ product.image.url }}" alt="{{ product.image.alt|default:product.name }}" loading="lazy" width="400" height="400" class="{% if not product.has_available %}opacity-60{% endif %}">
+  {% else %}
+    <div class="flex aspect-square items-center justify-center bg-brand-water-50 text-sm text-brand-gray-600">Sin foto</div>
+  {% endif %}
+  <div class="flex flex-1 flex-col gap-1 p-3">
+    <span class="text-sm font-semibold leading-snug group-hover:underline">{{ product.name }}</span>
+    {% if product.price_from is not None %}
+      <span class="text-base font-bold">{% if product.price_varies %}<span class="text-sm font-normal text-brand-gray-600">desde </span>{% endif %}{{ product.price_from|money }}</span>
+      <span class="text-xs text-brand-gray-600">+ IVA 21 %</span>
+    {% endif %}
+    <span class="mt-auto pt-1">{% if product.has_available %}{% include "store/components/status_badge.html" with label="Disponible" tone="ok" %}{% else %}{% include "store/components/status_badge.html" with label="Agotado" tone="off" %}{% endif %}</span>
+  </div>
+</a>

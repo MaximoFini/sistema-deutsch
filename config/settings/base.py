@@ -39,7 +39,8 @@ INSTALLED_APPS = [
     "apps.fulfillment",
     "apps.integrations",
     "apps.conversations",
-    "apps.reports",
+    "apps.wholesale",
+    "apps.reports",  # tiene que seguir siendo la última app propia (sincroniza los roles, ver accounts/roles.py)
 ]
 
 MIDDLEWARE = [
@@ -54,6 +55,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
     "axes.middleware.AxesMiddleware",
+    "apps.wholesale.middleware.WholesaleHostMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -101,6 +103,8 @@ AXES_COOLOFF_TIME = 0.5  # horas
 AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
 AXES_USERNAME_FORM_FIELD = "username"
 AXES_LOCKOUT_TEMPLATE = "accounts/lockout.html"  # mensaje en castellano (no el de django-axes)
+# Mismo bloqueo para el panel y la tienda mayorista; cambia solo la pantalla (M8).
+AXES_LOCKOUT_CALLABLE = "apps.wholesale.lockout.lockout_response"
 
 LANGUAGE_CODE = "es-ar"
 TIME_ZONE = "America/Argentina/Buenos_Aires"
@@ -112,6 +116,9 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 MEDIA_URL = "media/"
 MEDIA_ROOT = env.path("MEDIA_ROOT", default=BASE_DIR / "media")
+# Archivos privados (comprobantes de pago de la tienda mayorista): fuera de MEDIA_ROOT y sin URL pública.
+# Solo se sirven a través de una vista con permiso.
+PRIVATE_MEDIA_ROOT = env.path("PRIVATE_MEDIA_ROOT", default=BASE_DIR / "private_media")
 
 TAILWIND_CLI_SRC_CSS = "assets/css/source.css"
 TAILWIND_CLI_DIST_CSS = "css/panel.css"
@@ -181,6 +188,20 @@ FULFILLMENT_MAX_BATCH = env.int("FULFILLMENT_MAX_BATCH", default=60)
 REPORTS_STOCKOUT_MIN_TIMES = env.int("REPORTS_STOCKOUT_MIN_TIMES", default=2)
 # Ventas de ML por tanda al completar comisiones y costos de envío (la API se respeta con el límite de M0).
 REPORTS_ML_FEES_BATCH = env.int("REPORTS_ML_FEES_BATCH", default=50)
+
+# ── Tienda mayorista (M8) ──
+# Ruta de la tienda en el servidor del panel. Con WHOLESALE_HOST (p. ej. mayoristas.deutsch.com.ar)
+# ese dominio sirve la tienda en la raíz (etapa B), sin tocar código.
+WHOLESALE_PATH = env("WHOLESALE_PATH", default="mayorista/")
+WHOLESALE_HOST = env("WHOLESALE_HOST", default="")
+# Dirección pública de la tienda para los enlaces de los emails (vacía: rutas relativas).
+WHOLESALE_BASE_URL = env("WHOLESALE_BASE_URL", default="")
+WHOLESALE_REGISTRATIONS_PER_IP_HOUR = env.int("WHOLESALE_REGISTRATIONS_PER_IP_HOUR", default=5)
+# Los emails a clientes quedan en cola ("pendiente de envío") hasta que haya correo saliente real (DDEV-7).
+STORE_EMAILS_ENABLED = env.bool(
+    "STORE_EMAILS_ENABLED",
+    default=EMAIL_CONFIG.get("EMAIL_BACKEND", "").endswith("smtp.EmailBackend"),
+)
 
 SENTRY_DSN = env("SENTRY_DSN", default="")
 ENVIRONMENT_NAME = env("ENVIRONMENT_NAME", default="local")

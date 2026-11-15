@@ -43,6 +43,14 @@ ACTIONS: dict[str, str] = {
     "client.approved": "Cliente mayorista aprobado",
     "client.rejected": "Cliente mayorista rechazado",
     "payment.confirmed": "Pago confirmado",
+    "client.registered": "Registro en la tienda mayorista",
+    "client.updated": "Datos de cliente mayorista corregidos",
+    "client.suspended": "Cliente mayorista suspendido",
+    "client.reactivated": "Cliente mayorista reactivado",
+    "client.credit_changed": "Cuenta corriente de cliente mayorista cambiada",
+    "wholesale.order_placed": "Pedido mayorista confirmado",
+    "wholesale.settings_changed": "Configuración de la tienda mayorista cambiada",
+    "wholesale.email_template_changed": "Texto de email a clientes editado",
 }
 
 

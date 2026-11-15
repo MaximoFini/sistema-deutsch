@@ -1,0 +1,12 @@
+{% extends "store/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<article class="st-card mx-auto max-w-3xl p-5 sm:p-8">
+  <h1 class="mb-4 text-2xl font-bold">{{ title }}</h1>
+  {% if text %}
+    <div class="space-y-3 leading-relaxed">{{ text|linebreaks }}</div>
+  {% else %}
+    <p class="text-brand-gray-600">Deutsch está terminando de redactar este texto. Si tenés dudas, escribinos.</p>
+  {% endif %}
+</article>
+{% endblock %}

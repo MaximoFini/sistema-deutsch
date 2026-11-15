@@ -1,0 +1,33 @@
+{% load static %}{# Encabezado de la tienda. Recibe `shopper` y `cart_units` (StoreAccessMixin). #}
+<header class="border-b border-brand-gray-200 bg-white">
+  <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3">
+    <a href="{% url 'store:home' %}" class="flex shrink-0 items-center gap-2" aria-label="Deutsch, tienda mayorista: ir al catálogo">
+      <img src="{% static 'brand/deutsch-logo.svg' %}" alt="Deutsch" class="h-6 w-auto sm:h-8" width="146" height="33">
+      <span class="hidden rounded bg-brand-water px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-brand-ink sm:inline">Mayorista</span>
+    </a>
+    {% if shopper %}
+    <form action="{% url 'store:home' %}" method="get" role="search" class="order-last w-full sm:order-none sm:w-auto sm:flex-1">
+      <label for="store-search" class="sr-only">Buscar por nombre o código</label>
+      <input id="store-search" type="search" name="q" value="{{ filters.q|default:'' }}" placeholder="Buscar por nombre o código" class="st-input" enterkeyhint="search">
+    </form>
+    <nav class="ml-auto flex items-center text-sm sm:ml-0 sm:gap-1" aria-label="Principal">
+      <a href="{% url 'store:home' %}" class="st-btn st-btn-ghost px-2 sm:px-3">Catálogo</a>
+      <a href="{% url 'store:cart' %}" class="st-btn st-btn-ghost px-2 sm:px-3" aria-label="Carrito, {{ cart_units }} unidades">
+        Carrito{% if cart_units %} <span class="st-badge st-badge-info">{{ cart_units }}</span>{% endif %}
+      </a>
+      <form method="post" action="{% url 'store:logout' %}">{% csrf_token %}
+        <button class="st-btn st-btn-ghost px-2 text-brand-gray-600 sm:px-3">Salir</button>
+      </form>
+    </nav>
+    {% else %}
+    <nav class="ml-auto flex items-center gap-2 text-sm" aria-label="Cuenta">
+      {% if user.is_authenticated %}
+      <form method="post" action="{% url 'store:logout' %}">{% csrf_token %}<button class="st-btn st-btn-ghost">Salir</button></form>
+      {% else %}
+      <a href="{% url 'store:login' %}" class="st-btn st-btn-ghost">Ingresar</a>
+      <a href="{% url 'store:register' %}" class="st-btn st-btn-primary">Registrarme</a>
+      {% endif %}
+    </nav>
+    {% endif %}
+  </div>
+</header>
