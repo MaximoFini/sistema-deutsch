@@ -62,17 +62,18 @@
 
 <section class="mb-6 rounded-lg border border-stone-200 bg-white p-3">
   <h2 class="font-semibold">Flex y Colecta despachados a tiempo</h2>
+  <p class="mb-3 text-xs text-stone-500">Envíos con fecha límite dentro del período. Cuentan como tarde los que salieron después de la fecha límite y los que ya vencieron y todavía no salieron. Los que todavía están a tiempo de salir no cuentan.</p>
   {% if not flex.total %}
-    <p class="py-4 text-sm text-stone-500">No se despacharon envíos Flex ni Colecta en este período.</p>
+    <p class="py-4 text-sm text-stone-500">No hay envíos Flex ni Colecta con fecha límite vencida en este período.</p>
   {% else %}
-    <p class="mb-3 text-sm"><strong class="text-lg {% if flex.pct >= 95 %}text-emerald-700{% elif flex.pct >= 85 %}text-amber-700{% else %}text-red-700{% endif %}">{{ flex.pct|pct }}</strong> a tiempo · {{ flex.on_time }} de {{ flex.total }} salieron antes de la fecha límite{% if flex.late_count %} y {{ flex.late_count }} tarde{% endif %}.</p>
+    <p class="mb-3 text-sm"><strong class="text-lg {% if flex.pct >= 95 %}text-emerald-700{% elif flex.pct >= 85 %}text-amber-700{% else %}text-red-700{% endif %}">{{ flex.pct|pct }}</strong> a tiempo · {{ flex.on_time }} de {{ flex.total }} salieron antes de la fecha límite{% if flex.late_count %} y {{ flex.late_count }} tarde{% if flex.pending_count %} ({{ flex.pending_count }} todavía sin despachar){% endif %}{% endif %}.</p>
     {% if flex.late %}
     <div class="overflow-x-auto">
     <table class="w-full min-w-[560px] text-sm">
       <thead class="text-left text-stone-500"><tr><th class="py-1 pr-2">Pedido</th><th class="py-1 pr-2">Modalidad</th><th class="py-1 pr-2">Despachar antes de</th><th class="py-1 pr-2">Despachado</th><th class="py-1 text-right">Demora</th></tr></thead>
       <tbody>
       {% for r in flex_late %}
-        <tr class="border-t border-stone-100"><td class="py-1 pr-2"><a class="underline" href="{% url 'sales:detail' r.document_id %}">{{ r.pedido }}</a></td><td class="py-1 pr-2">{{ r.modalidad }}</td><td class="py-1 pr-2">{{ r.limite|date:"d/m H:i" }}</td><td class="py-1 pr-2">{{ r.despachado|date:"d/m H:i" }}</td><td class="py-1 text-right text-red-700">{{ r.demora_h|hours }}</td></tr>
+        <tr class="border-t border-stone-100"><td class="py-1 pr-2"><a class="underline" href="{% url 'sales:detail' r.document_id %}">{{ r.pedido }}</a></td><td class="py-1 pr-2">{{ r.modalidad }}</td><td class="py-1 pr-2">{{ r.limite|date:"d/m H:i" }}</td><td class="py-1 pr-2">{% if r.sin_despachar %}<span class="font-semibold text-red-700">Todavía sin despachar</span>{% else %}{{ r.despachado|date:"d/m H:i" }}{% endif %}</td><td class="py-1 text-right text-red-700">{{ r.demora_h|hours }}{% if r.sin_despachar %} hasta ahora{% endif %}</td></tr>
       {% endfor %}
       </tbody>
     </table>

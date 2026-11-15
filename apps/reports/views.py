@@ -7,6 +7,7 @@ from apps.accounts.mixins import PanelPermissionRequiredMixin
 
 from . import excel, filters, queries
 from .excel import Sheet
+from .templatetags.reports import money
 
 TABS = [
     ("reports:summary", "Resumen"),
@@ -28,6 +29,17 @@ def _num(value):
     if value is None:
         return None
     return int(value) if value == int(value) else float(value)
+
+
+def net_footer(table: dict) -> str:
+    """Aclaración debajo del total cuando se agrupa por producto, variante, talle o color (vacía si no)."""
+    t = table["totals"]
+    if "neto_resumen" not in t:
+        return ""
+    return (
+        f"Neto sin descontar envíos de Mercado Libre ({money(t['envio'])}). "
+        f"El neto del resumen, con envíos, es {money(t['neto_resumen'])}."
+    )
 
 
 class ReportView(PanelPermissionRequiredMixin, TemplateView):
@@ -160,7 +172,8 @@ class SalesView(ReportView):
 
     def table(self):
         group_by = self.request.GET.get("agrupar", "canal")
-        return queries.sales_table(self.f, group_by, self.request.GET.get("orden") or None)
+        table = queries.sales_table(self.f, group_by, self.request.GET.get("orden") or None)
+        return queries.add_net_summary(self.f, table)
 
     def get_context_data(self, **kwargs):
         from urllib.parse import urlencode
@@ -197,6 +210,7 @@ class SalesView(ReportView):
                 for key, label in queries.GROUPS.items()
             ],
             variant_cols=table["group_by"] == "variante",
+            net_footer=net_footer(table),
             **kwargs,
         )
 
@@ -231,7 +245,7 @@ class SalesView(ReportView):
                 + (
                     ""
                     if table["group_by"] in queries.DOC_GROUPS
-                    else " Por producto se suma lo cobrado por el producto (sin envío)."
+                    else " Por producto se suma lo cobrado por el producto (sin envío). " + net_footer(table)
                 ),
             )
         ]
@@ -387,10 +401,18 @@ class OperationsView(ReportView):
                 "Flex y Colecta tarde",
                 ["Pedido", "Modalidad", "Despachar antes de", "Despachado", "Demora (h)"],
                 [
-                    [r["pedido"], r["modalidad"], r["limite"], r["despachado"], r["demora_h"]]
+                    [
+                        r["pedido"],
+                        r["modalidad"],
+                        r["limite"],
+                        "Todavía sin despachar" if r["sin_despachar"] else r["despachado"],
+                        r["demora_h"],
+                    ]
                     for r in flex["late"]
                 ],
                 note=self.note()
+                + " Por fecha límite. Tarde: salieron después de la fecha límite o vencieron y siguen sin"
+                + " despachar (demora hasta ahora)."
                 + f" A tiempo: {flex['on_time']} de {flex['total']}"
                 + (f" ({flex['pct']} %)." if flex["pct"] is not None else "."),
             ),

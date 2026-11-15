@@ -56,6 +56,11 @@
       <td class="px-3 py-2 text-right">{{ table.totals.neto|money }}</td>
       <td class="px-3 py-2 text-right">{{ table.totals.precio|money }}</td>
     </tr>
+    {% if net_footer %}
+    <tr>
+      <td colspan="{% if variant_cols %}9{% else %}6{% endif %}" class="px-3 pb-2 text-xs font-normal text-stone-600">{{ net_footer }}</td>
+    </tr>
+    {% endif %}
   </tfoot>
   {% endif %}
 </table>

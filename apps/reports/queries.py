@@ -494,6 +494,24 @@ def sales_table(f: Filters, group_by: str = "canal", order: str | None = None) -
     return {"group_by": group_by, "order": order, "rows": rows, "totals": totals}
 
 
+def add_net_summary(f: Filters, table: dict) -> dict:
+    """Por producto, variante, talle o color agrega a los totales el envío del vendedor y el neto del resumen.
+
+    El neto de esas tablas no descuenta el envío (no se reparte entre productos) y por eso no coincide con
+    el del resumen: la pantalla y el Excel lo aclaran debajo del total. Mismo cálculo que `kpis` (bruto de
+    los pedidos − comisiones − envíos), en dos consultas; las comisiones salen de la propia tabla.
+    """
+    if table["group_by"] in DOC_GROUPS:
+        return table
+    totals = table["totals"]
+    fees = totals["bruto"] - totals["neto"]
+    gross = _dec(sales(f).aggregate(t=Sum("total"))["t"])
+    shipping = _dec(Shipment.objects.filter(_doc_q(f, "document__")).aggregate(c=Sum("seller_cost"))["c"])
+    totals["envio"] = shipping
+    totals["neto_resumen"] = gross - fees - shipping
+    return table
+
+
 # ── Productos ─────────────────────────────────────────────────────────────
 
 
@@ -699,23 +717,35 @@ def dispatch_times(f: Filters) -> dict:
     }
 
 
-def flex_on_time(f: Filters) -> dict:
-    """Flex y Colecta despachados antes de la fecha límite, con la lista de los que salieron tarde."""
+def flex_on_time(f: Filters, now=None) -> dict:
+    """Flex y Colecta con fecha límite en el período: a tiempo, tarde y vencidos sin despachar.
+
+    El período se toma por fecha límite (no por fecha de despacho). Cuenta como tarde lo despachado
+    después de la fecha límite y lo que venció y sigue sin despachar (no cancelado); la demora de
+    estos se mide hasta ahora. Los que todavía no vencieron y no salieron no cuentan.
+    """
+    now = now or timezone.now()
     qs = Shipment.objects.filter(
         method__in=[Shipment.Method.ME_FLEX, Shipment.Method.ME_COLECTA],
-        dispatch_deadline__isnull=False,
         document__doc_type=ORDER,
-        document__dispatched_at__gte=f.start_dt,
-        document__dispatched_at__lt=f.end_dt,
+        dispatch_deadline__gte=f.start_dt,
+        dispatch_deadline__lt=f.end_dt,
     ).exclude(document__status=states.CANCELLED)
     if f.channel:
         qs = qs.filter(document__channel__code=f.channel)
     on_time_q = Q(document__dispatched_at__lte=F("dispatch_deadline"))
-    agg = qs.aggregate(total=Count("id"), on_time=Count("id", filter=on_time_q))
+    # Sin fecha de despacho pero ya despachado/entregado (datos viejos): no se sabe, no cuenta.
+    pending_q = Q(document__dispatched_at__isnull=True) & ~Q(
+        document__status__in=[states.DISPATCHED, states.READY_FOR_PICKUP, states.DELIVERED]
+    )
+    late_q = Q(document__dispatched_at__gt=F("dispatch_deadline")) | (
+        pending_q & Q(dispatch_deadline__lt=now)
+    )
+    agg = qs.aggregate(on_time=Count("id", filter=on_time_q), late=Count("id", filter=late_q))
     labels = dict(Shipment.Method.choices)
     late = []
     for s in (
-        qs.exclude(on_time_q)
+        qs.filter(late_q)
         .values(
             "document_id",
             "document__channel_reference",
@@ -724,24 +754,27 @@ def flex_on_time(f: Filters) -> dict:
             "dispatch_deadline",
             "document__dispatched_at",
         )
-        .order_by("-document__dispatched_at")
+        .order_by("-dispatch_deadline", "-id")
     ):
-        delay = s["document__dispatched_at"] - s["dispatch_deadline"]
+        out = s["document__dispatched_at"]
+        delay = (out or now) - s["dispatch_deadline"]
         late.append(
             {
                 "document_id": s["document_id"],
                 "pedido": s["document__channel_reference"] or f"Pedido #{s['document__number']}",
                 "modalidad": labels.get(s["method"], s["method"]),
                 "limite": s["dispatch_deadline"],
-                "despachado": s["document__dispatched_at"],
+                "despachado": out,
+                "sin_despachar": out is None,
                 "demora_h": round(delay.total_seconds() / 3600, 1),
             }
         )
-    total = agg["total"]
+    total = agg["on_time"] + agg["late"]
     return {
         "total": total,
         "on_time": agg["on_time"],
-        "late_count": total - agg["on_time"],
+        "late_count": agg["late"],
+        "pending_count": sum(1 for r in late if r["sin_despachar"]),
         "pct": round(agg["on_time"] * 100 / total, 1) if total else None,
         "late": late,
     }
