@@ -1,4 +1,4 @@
-"""Alertas periódicas de pedidos (US-5): Flex/Colecta por vencer y manuales pendientes."""
+"""Alertas periódicas de pedidos (US-5): Flex/Colecta por vencer y manuales o mayoristas pendientes."""
 
 from datetime import timedelta
 
@@ -44,28 +44,50 @@ def check_flex_due(now=None) -> int:
 
 
 def check_manual_pending(now=None) -> int:
+    """Pedidos manuales y (M8a) mayoristas confirmados que siguen sin cobrar o sin facturar.
+
+    Un mayorista sin «Facturado en Contabilium» mantiene la reserva de stock: si nadie lo marca, esa
+    mercadería queda descontada de la tienda para siempre. Para el mayorista cuenta desde que quedó
+    confirmado (entró en Nuevo); los que esperan la transferencia no avisan.
+    """
     now = now or timezone.now()
     older = now - timedelta(hours=settings.ORDERS_MANUAL_PENDING_HOURS)
     count = 0
-    # Solo los que todavía deben cobro o factura (no toda la historia de pedidos manuales).
+    manual = Q(channel__code="manual", issued_at__lte=older)
+    confirmed_before = Q(ready_at__lte=older) | Q(ready_at__isnull=True, issued_at__lte=older)
+    wholesale = Q(channel__code="mayorista") & confirmed_before & ~Q(status=states.AWAITING_PAYMENT)
+    # Solo los que todavía deben cobro o factura (no toda la historia de pedidos).
     docs = (
         payments.annotate_paid(
-            SalesDocument.objects.filter(
-                channel__code="manual",
-                doc_type=SalesDocument.DocType.ORDER,
-                issued_at__lte=older,
-            ).exclude(status=states.CANCELLED)
+            SalesDocument.objects.filter(manual | wholesale, doc_type=SalesDocument.DocType.ORDER).exclude(
+                status=states.CANCELLED
+            )
         )
         .filter(~payments.paid_q() | Q(invoiced_in_contabilium=False))
-        .select_related("channel")
+        .select_related("channel", "wholesale")
     )
     for doc in docs:
-        unpaid = not payments.is_paid(doc)
+        is_wholesale = doc.channel.code == "mayorista"
+        wholesale_order = getattr(doc, "wholesale", None) if is_wholesale else None
+        # La cuenta corriente se cobra después por definición: avisar "sin cobrar" sería ruido.
+        on_account = wholesale_order is not None and wholesale_order.payment_method == "account"
+        unpaid = not payments.is_paid(doc) and not on_account
+        since = timezone.localtime((doc.ready_at if is_wholesale else None) or doc.issued_at)
+        # La referencia ya nombra el canal ("Manual #12", "Mayorista #40").
+        ref = doc.channel_reference or f"Pedido {doc.channel.name} {doc.number}"
+        when = "Pedido mayorista confirmado" if is_wholesale else "Cargado"
+        body = f"{when} el {since:%d/%m %H:%M}. Total ${doc.total}."
         for reason, missing in (("pago", unpaid), ("factura", not doc.invoiced_in_contabilium)):
-            if missing and alerts.emit(
+            if not missing:
+                continue
+            what = "cobrar" if reason == "pago" else "facturar en Contabilium"
+            extra = ""
+            if is_wholesale and reason == "factura":
+                extra = " Mientras no se marque «Facturado en Contabilium», la mercadería sigue reservada en la tienda."
+            if alerts.emit(
                 "orders.manual_pending",
-                title=f"{doc.channel_reference} sin {'cobrar' if reason == 'pago' else 'facturar en Contabilium'}",
-                body=f"Cargado el {timezone.localtime(doc.issued_at):%d/%m %H:%M}. Total ${doc.total}.",
+                title=f"{ref} sin {what}",
+                body=body + extra,
                 link_url=f"/pedidos/{doc.pk}/",
                 dedupe_key=f"manual:{doc.pk}:{reason}",
             ):

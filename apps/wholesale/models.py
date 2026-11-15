@@ -172,6 +172,11 @@ class WholesaleOrder(models.Model):
         verbose_name = "pedido mayorista"
         verbose_name_plural = "pedidos mayoristas"
 
+    @property
+    def paid_with_balance(self) -> bool:
+        """M8a (T1): el saldo a favor cubrió todo el pedido (total $0): no hay nada que transferir ni cobrar."""
+        return self.balance_applied > 0 and self.document.total <= 0
+
 
 class Shortage(TimeStampedModel):
     """Faltante marcado por Depósito en una línea de un pedido mayorista."""
@@ -243,6 +248,7 @@ class OutboundEmail(TimeStampedModel):
         PENDING = "pending", "Pendiente de envío"
         SENT = "sent", "Enviado"
         FAILED = "failed", "Falló"
+        EXPIRED = "expired", "Vencido, no enviado"  # M8a (T2): quedó viejo en la cola y ya no sirve
 
     to = models.EmailField("para")
     template_code = models.CharField("plantilla", max_length=40)

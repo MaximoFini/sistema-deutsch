@@ -232,6 +232,7 @@ class AddToCartView(StoreAccessMixin, View):
     http_method_names = ["post"]
 
     def post(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)  # enlace viejo o id inválido: 404 de la tienda, no 500
         quantities = {}
         try:
             for key, value in request.POST.items():
@@ -243,7 +244,7 @@ class AddToCartView(StoreAccessMixin, View):
             )
             return redirect("store:product", pk=pk)
         # Solo variantes de este producto (no se puede colar otra cosa por el formulario).
-        valid = set(Product.objects.get(pk=pk).variants.values_list("pk", flat=True)) if quantities else set()
+        valid = set(product.variants.values_list("pk", flat=True)) if quantities else set()
         quantities = {k: v for k, v in quantities.items() if k in valid}
         warnings = cart_service.set_quantities(self.shopper.cart(), quantities)
         for warning in warnings:
@@ -412,6 +413,7 @@ class OrderDoneView(StoreAccessMixin, TemplateView):
                 if shipment and shipment.method == "pickup"
                 else checkout.DELIVERY_CARRIER,
                 store,
+                paid_with_balance=order.paid_with_balance,
             ),
         )
         return ctx

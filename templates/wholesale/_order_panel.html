@@ -2,7 +2,7 @@
 <section class="mt-4 rounded-lg border border-violet-200 bg-white p-4 text-sm" id="mayorista">
   <div class="flex flex-wrap items-center gap-2">
     <h2 class="font-semibold">Pedido mayorista</h2>
-    <span class="text-stone-600">· {{ order.get_payment_method_display }}</span>
+    <span class="text-stone-600">· {% if order.paid_with_balance %}Pagado entero con saldo a favor (eligió {{ order.get_payment_method_display|lower }}){% else %}{{ order.get_payment_method_display }}{% endif %}</span>
     <span class="text-stone-600">· {% if order.on_behalf %}Cargado por {{ placed_by.get_full_name|default:placed_by }} en nombre del cliente{% else %}Lo cargó el cliente en la tienda{% endif %}</span>
     {% if order.balance_applied %}<span class="text-stone-600">· Saldo a favor usado ${{ order.balance_applied|floatformat:"2g" }}</span>{% endif %}
   </div>

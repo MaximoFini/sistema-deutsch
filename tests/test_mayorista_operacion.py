@@ -849,6 +849,7 @@ def test_t13_wholesale_report_and_excel(customer, other_customer, malla, staff):
         "Esperando pago",
         "Vencidos",
         "Sin facturar",
+        "Reservado sin facturar",  # M8a (T3)
         "Saldos a favor",
     ]
     rows = list(wb["Ventas por cliente"].iter_rows(values_only=True))
@@ -878,7 +879,9 @@ def test_golden_rule_operations_never_write_channels(customer, malla, staff):
         shortages.report(doc, {line.pk: 1}, user=staff[DEPOSITO])
         shortages.resolve(doc, quantities={line.pk: 1}, difference="credit", user=staff[ADMIN])
         manual.update_invoice(doc, invoiced=True, number="A-9", user=staff[ADMIN])
-        other = order_for(customer, malla, items={malla[1][("M", "Azul")]: 1})
+        # 2 unidades: el crédito del faltante ($12.100) no cubre todo y queda esperando la transferencia
+        # (M8a T1: si lo cubriera, entraría en Nuevo sin vencimiento).
+        other = order_for(customer, malla, items={malla[1][("M", "Azul")]: 2})
         payments.expire_orders(
             now=WholesaleOrder.objects.get(document=other).expires_at + timedelta(minutes=1)
         )

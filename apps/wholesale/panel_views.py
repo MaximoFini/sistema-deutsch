@@ -271,6 +271,8 @@ class OutboundEmailListView(PanelPermissionRequiredMixin, TemplateView):
             status=status,
             statuses=OutboundEmail.Status.choices,
             pending_emails=mail.pending_count(),
+            expired_emails=mail.expired_count(),
+            max_age_hours=settings.STORE_EMAIL_MAX_AGE_HOURS,
             emails_enabled=settings.STORE_EMAILS_ENABLED,
             is_paginated=page.has_other_pages(),
             paginator=page.paginator,

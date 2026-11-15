@@ -492,6 +492,18 @@ class WholesaleView(ReportView):
                 note=today_note + " Pagados o en curso, sin «Facturado en Contabilium».",
             ),
             Sheet(
+                "Reservado sin facturar",
+                ["Pedido", "Cliente", "Fecha", "Días", "Estado", "Unidades reservadas", "Total"],
+                [
+                    [r["pedido"], r["cliente"], r["fecha"], r["dias"], r["estado"], r["unidades"], r["total"]]
+                    for r in d["reserved"]
+                ],
+                totals=["Total", "", "", "", "", d["reserved_units"], ""],
+                money_columns={6},
+                note=today_note
+                + " Unidades que la tienda tiene descontadas por pedidos sin «Facturado en Contabilium».",
+            ),
+            Sheet(
                 "Saldos a favor",
                 ["Cliente", "Saldo a favor"],
                 [[r["clave"], r["saldo"]] for r in d["balances"]],

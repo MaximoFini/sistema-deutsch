@@ -136,6 +136,7 @@ class Payment(TimeStampedModel):
         TRANSFER = "transfer", "Transferencia"
         CASH = "cash", "Efectivo"
         CURRENT_ACCOUNT = "current_account", "Cuenta corriente"
+        BALANCE = "balance", "Saldo a favor"  # M8a: pedido mayorista pagado entero con saldo a favor
         OTHER = "other", "Otro"
 
     class Status(models.TextChoices):

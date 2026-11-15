@@ -4,10 +4,15 @@
 en `OutboundEmail` como "pendiente de envío". La tarea `send_pending_emails` los manda cuando hay
 correo saliente configurado (`STORE_EMAILS_ENABLED`); mientras tanto quedan en la cola, visibles en el
 panel.
+
+M8a (T2): al enviar, un email con más de `STORE_EMAIL_MAX_AGE_HOURS` (72 h) en la cola ya no sirve ("tu
+pago vence mañana" de hace semanas): queda "Vencido, no enviado". La aprobación o el rechazo del registro
+no vencen nunca (siguen siendo útiles).
 """
 
 import logging
 import re
+from datetime import timedelta
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
@@ -23,6 +28,8 @@ from .models import EmailTemplate, OutboundEmail
 logger = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 5
+NEVER_EXPIRE = ("registration_approved", "registration_rejected")
+EXPIRED_NOTE = "No se mandó: quedó más de {hours} h en la cola y el aviso ya no sirve."
 VARIABLE = re.compile(r"\{(\w+)\}")
 # Variables que se pueden usar en los textos (se muestran como ayuda en el panel).
 VARIABLES = {
@@ -82,10 +89,41 @@ def enqueue(code: str, to: str, context: dict | None = None) -> OutboundEmail | 
     return email
 
 
+def max_age() -> timedelta:
+    return timedelta(hours=settings.STORE_EMAIL_MAX_AGE_HOURS)
+
+
+def is_stale(email: OutboundEmail, now=None) -> bool:
+    """Viejo para mandarlo: más de `STORE_EMAIL_MAX_AGE_HOURS` en la cola (salvo los que no vencen)."""
+    if email.template_code in NEVER_EXPIRE:
+        return False
+    return email.created_at <= (now or timezone.now()) - max_age()
+
+
+def expire_stale(now=None) -> int:
+    """Marca "Vencido, no enviado" todos los pendientes viejos (una sola consulta)."""
+    now = now or timezone.now()
+    return (
+        OutboundEmail.objects.filter(status=OutboundEmail.Status.PENDING, created_at__lte=now - max_age())
+        .exclude(template_code__in=NEVER_EXPIRE)
+        .update(
+            status=OutboundEmail.Status.EXPIRED,
+            last_error=EXPIRED_NOTE.format(hours=settings.STORE_EMAIL_MAX_AGE_HOURS),
+            updated_at=now,
+        )
+    )
+
+
 def send(email: OutboundEmail) -> bool:
     """Intenta mandar un email de la cola. Devuelve True si salió."""
     if email.status != OutboundEmail.Status.PENDING:
         return email.status == OutboundEmail.Status.SENT
+    if is_stale(email):
+        email.status = OutboundEmail.Status.EXPIRED
+        email.last_error = EXPIRED_NOTE.format(hours=settings.STORE_EMAIL_MAX_AGE_HOURS)
+        email.save(update_fields=["status", "last_error", "updated_at"])
+        logger.info("Email %s a %s vencido en la cola: no se manda", email.pk, email.to)
+        return False
     email.attempts += 1
     try:
         message = EmailMultiAlternatives(
@@ -119,6 +157,7 @@ def send_pending(limit: int = 100) -> int:
     """Manda los pendientes (los más viejos primero). No hace nada si no hay correo saliente."""
     if not settings.STORE_EMAILS_ENABLED:
         return 0
+    expire_stale()  # primero se descartan los viejos, así no ocupan el lote
     sent = 0
     ids = list(
         OutboundEmail.objects.filter(status=OutboundEmail.Status.PENDING)
@@ -135,3 +174,7 @@ def send_pending(limit: int = 100) -> int:
 
 def pending_count() -> int:
     return OutboundEmail.objects.filter(status=OutboundEmail.Status.PENDING).count()
+
+
+def expired_count() -> int:
+    return OutboundEmail.objects.filter(status=OutboundEmail.Status.EXPIRED).count()

@@ -11,6 +11,10 @@
    facturar, cancelar o ajustar por faltante (T9/T12), nunca al confirmar el pago.
 5. Vacía el carrito, audita, encola el email y, si entra en Nuevo, avisa a Depósito.
 
+M8a (T1): si el saldo a favor cubre todo (total $0), el pago queda confirmado ("Saldo a favor") y el
+pedido no espera nada: sin vencimiento, sin recordatorio ni comprobante. Por transferencia pasa de
+Esperando pago a Nuevo por `change_status` (que avisa a Depósito), como al confirmar un pago.
+
 Regla de oro: nada de esto escribe stock ni precios en Tiendanube o Mercado Libre; la reserva es interna.
 """
 
@@ -87,7 +91,19 @@ def allowed_payments(shopper: Shopper, delivery_method: str | None = None) -> li
     return methods
 
 
-def next_steps(payment_method: str, delivery_method: str, settings_row: StoreSettings | None = None) -> str:
+def next_steps(
+    payment_method: str,
+    delivery_method: str,
+    settings_row: StoreSettings | None = None,
+    *,
+    paid_with_balance: bool = False,
+) -> str:
+    if paid_with_balance:
+        where = "retirar" if delivery_method == DELIVERY_PICKUP else "despachar"
+        return (
+            "Pagaste el pedido entero con tu saldo a favor: no tenés que transferir ni subir comprobante. "
+            f"Ya estamos preparando tu pedido. Te avisamos cuando esté listo para {where}."
+        )
     settings_row = settings_row or StoreSettings.load()
     if payment_method == WholesaleOrder.PaymentMethod.TRANSFER:
         days = settings_row.transfer_expiry_days
@@ -256,13 +272,24 @@ def _place(shopper, delivery, payment_method, seen, notes, request) -> SalesDocu
             note=f"Usado en el pedido {doc.channel_reference}",
             created_by=shopper.user,
         )
-    Payment.objects.create(
-        document=doc,
-        method=PAYMENT_TO_SALES[payment_method],
-        amount=doc.total,
-        status=Payment.Status.PENDING,
-        external_reference="mayorista",
-    )
+    paid_with_balance = applied > 0 and doc.total <= 0
+    if paid_with_balance:  # T1: el saldo cubrió todo; no hay nada que cobrar
+        Payment.objects.create(
+            document=doc,
+            method=Payment.Method.BALANCE,
+            amount=applied,
+            status=Payment.Status.CONFIRMED,
+            paid_at=now,
+            external_reference="mayorista",
+        )
+    else:
+        Payment.objects.create(
+            document=doc,
+            method=PAYMENT_TO_SALES[payment_method],
+            amount=doc.total,
+            status=Payment.Status.PENDING,
+            external_reference="mayorista",
+        )
     Shipment.objects.create(
         document=doc,
         method=Shipment.Method.PICKUP if delivery.method == DELIVERY_PICKUP else Shipment.Method.CARRIER,
@@ -275,7 +302,9 @@ def _place(shopper, delivery, payment_method, seen, notes, request) -> SalesDocu
         placed_by=shopper.user,
         on_behalf=shopper.acting,
         payment_method=payment_method,
-        expires_at=now + timedelta(days=store.transfer_expiry_days) if transfer else None,
+        expires_at=now + timedelta(days=store.transfer_expiry_days)
+        if transfer and not paid_with_balance
+        else None,
         balance_applied=applied,
     )
     # 4. Reserva interna de stock (nunca se escribe en los canales).
@@ -303,11 +332,23 @@ def _place(shopper, delivery, payment_method, seen, notes, request) -> SalesDocu
             "entrega": delivery.method,
             "en_nombre_de": shopper.acting,
             "saldo_usado": str(applied),
+            "pagado_con_saldo": paid_with_balance,
         },
         cargado_por=str(shopper.user),
     )
-    steps = next_steps(payment_method, delivery.method, store)
-    if transfer:
+    if transfer and paid_with_balance:
+        # Esperando pago → Nuevo por el camino de siempre (historial + aviso de pedido nuevo a Depósito).
+        states.change_status(
+            doc,
+            states.NEW,
+            user=shopper.user,
+            system=True,
+            reason="Pagado con saldo a favor",
+            request=request,
+        )
+        doc.refresh_from_db(fields=["status", "status_changed_at", "ready_at"])
+    steps = next_steps(payment_method, delivery.method, store, paid_with_balance=paid_with_balance)
+    if transfer and not paid_with_balance:
         from .payments import bank_details_text
 
         steps += "\n\nDatos para transferir:\n" + bank_details_text(store)

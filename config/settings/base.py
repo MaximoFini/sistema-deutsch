@@ -202,6 +202,9 @@ STORE_EMAILS_ENABLED = env.bool(
     "STORE_EMAILS_ENABLED",
     default=EMAIL_CONFIG.get("EMAIL_BACKEND", "").endswith("smtp.EmailBackend"),
 )
+# M8a: un email que quedó más de estas horas en la cola no se manda ("Vencido, no enviado"); la aprobación
+# y el rechazo del registro no vencen nunca.
+STORE_EMAIL_MAX_AGE_HOURS = env.int("STORE_EMAIL_MAX_AGE_HOURS", default=72)
 
 SENTRY_DSN = env("SENTRY_DSN", default="")
 ENVIRONMENT_NAME = env("ENVIRONMENT_NAME", default="local")

@@ -24,6 +24,7 @@ from django.db.models import (
 )
 from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import (
+    Cast,
     Coalesce,
     Concat,
     ExtractHour,
@@ -37,7 +38,7 @@ from django.db.models.functions import (
 from django.utils import timezone
 
 from apps.conversations.models import Question
-from apps.inventory.models import StockLevel, Warehouse
+from apps.inventory.models import StockLevel, StockMovement, Warehouse
 from apps.sales import payments, states
 from apps.sales.models import ReturnInfo, SalesDocument, SalesLine, Shipment
 
@@ -829,7 +830,10 @@ def _wholesale_q(f: Filters) -> Q:
 
 
 def wholesale(f: Filters, today: date | None = None) -> dict:
-    """Pestaña Mayorista: ventas por cliente y por quién cargó, pendientes y saldos a favor (6 consultas)."""
+    """Pestaña Mayorista: ventas por cliente y por quién cargó, pendientes, reservas y saldos a favor
+    (7 consultas)."""
+    from django.contrib.contenttypes.models import ContentType
+
     from apps.wholesale.models import CustomerBalance, WholesaleOrder
 
     today = today or timezone.localdate()
@@ -905,6 +909,40 @@ def wholesale(f: Filters, today: date | None = None) -> dict:
         ),
         "Sin facturar",
     )
+    # M8a (T3): unidades que siguen reservadas por pedidos sin facturar (la reserva no se liberó). Si nadie
+    # marca «Facturado en Contabilium», esa mercadería queda descontada de la tienda.
+    reserved_units = (
+        StockMovement.objects.filter(
+            reference_type=ContentType.objects.get_for_model(SalesDocument),
+            reference_id=Cast(OuterRef("document_id"), CharField()),
+            affects="reserved",
+        )
+        .values("reference_id")
+        .annotate(q=Sum("quantity"))
+        .values("q")
+    )
+    reserved_rows = []
+    for o in (
+        orders.filter(reservation_released_at__isnull=True, document__invoiced_in_contabilium=False)
+        .exclude(document__status=states.CANCELLED)
+        .annotate(units=Coalesce(Subquery(reserved_units), Value(Decimal(0)), output_field=MONEY))
+        .filter(units__gt=0)
+        .select_related("document__customer")
+        .order_by("document__issued_at")
+    ):
+        d = o.document
+        reserved_rows.append(
+            {
+                "document_id": d.pk,
+                "pedido": d.channel_reference or str(d),
+                "cliente": str(d.customer) if d.customer else "",
+                "fecha": timezone.localtime(d.issued_at),
+                "dias": (today - timezone.localtime(d.issued_at).date()).days,
+                "total": d.total,
+                "estado": states.label(d.status),
+                "unidades": int(o.units),
+            }
+        )
     balances = list(
         CustomerBalance.objects.values("customer_id", "customer__legal_name", "customer__trade_name")
         .annotate(saldo=Sum("amount"))
@@ -930,6 +968,8 @@ def wholesale(f: Filters, today: date | None = None) -> dict:
         "awaiting": awaiting,
         "expired": expired,
         "not_invoiced": not_invoiced,
+        "reserved": reserved_rows,
+        "reserved_units": sum(r["unidades"] for r in reserved_rows),
         "balances": balance_rows,
         "balances_total": total(balance_rows, "saldo"),
     }

@@ -19,7 +19,8 @@ def wholesale_order(context, doc):
     if order is None:
         return base
     perms = context.get("perms")
-    transfer = order.payment_method == WholesaleOrder.PaymentMethod.TRANSFER
+    # T1 (M8a): pagado entero con saldo a favor: no hay transferencia que esperar ni comprobante.
+    transfer = order.payment_method == WholesaleOrder.PaymentMethod.TRANSFER and not order.paid_with_balance
     store = StoreSettings.load()
     shortages = list(doc.shortages.order_by("-created_at"))
     return {

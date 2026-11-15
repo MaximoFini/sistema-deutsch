@@ -53,6 +53,24 @@
   {% include "reports/_wholesale_rows.html" with rows=data.not_invoiced empty="Todos los pedidos mayoristas están facturados." %}
 </section>
 
+<section class="mb-6 rounded-lg border border-stone-200 bg-white p-3" id="reservado">
+  <h2 class="font-semibold">Stock reservado sin facturar <span class="text-sm font-normal text-stone-500">· {{ data.reserved_units }} unidad{{ data.reserved_units|pluralize:"es" }}</span></h2>
+  <p class="mb-2 text-xs text-stone-500">A la fecha: unidades que la tienda tiene descontadas por pedidos mayoristas que todavía no se marcaron «Facturado en Contabilium» (incluye los que esperan la transferencia). Si un pedido ya se facturó, marcalo para liberar la reserva.</p>
+  {% if data.reserved %}
+  <div class="overflow-x-auto">
+  <table class="w-full min-w-[560px] text-sm">
+    <thead class="text-left text-stone-500"><tr><th class="py-1 pr-2">Pedido</th><th class="py-1 pr-2">Cliente</th><th class="py-1 pr-2">Fecha</th><th class="py-1 pr-2 text-right">Días</th><th class="py-1 pr-2">Estado</th><th class="py-1 text-right">Unidades</th></tr></thead>
+    <tbody>
+    {% for r in data.reserved %}
+      <tr class="border-t border-stone-100"><td class="py-1 pr-2"><a class="underline" href="{% url 'sales:detail' r.document_id %}">{{ r.pedido }}</a></td><td class="py-1 pr-2">{{ r.cliente|truncatechars:40 }}</td><td class="py-1 pr-2">{{ r.fecha|date:"d/m/Y" }}</td><td class="py-1 pr-2 text-right">{{ r.dias }}</td><td class="py-1 pr-2">{{ r.estado }}</td><td class="py-1 text-right">{{ r.unidades }}</td></tr>
+    {% endfor %}
+    </tbody>
+    <tfoot class="font-semibold"><tr class="border-t border-stone-300"><td class="py-1 pr-2" colspan="5">Total</td><td class="py-1 text-right">{{ data.reserved_units }}</td></tr></tfoot>
+  </table>
+  </div>
+  {% else %}<p class="py-4 text-sm text-stone-500">No hay stock reservado por pedidos sin facturar.</p>{% endif %}
+</section>
+
 <section class="rounded-lg border border-stone-200 bg-white p-3">
   <h2 class="font-semibold">Saldos a favor vigentes</h2>
   <p class="mb-2 text-xs text-stone-500">A la fecha. {% if data.balances %}Total {{ data.balances_total|money }}.{% endif %}</p>

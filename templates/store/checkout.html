@@ -67,6 +67,7 @@
       {% if summary.balance_applied %}<div class="flex justify-between text-brand-success"><dt>Saldo a favor</dt><dd class="st-num">− {{ summary.balance_applied|money }}</dd></div>{% endif %}
       <div class="flex justify-between border-t border-brand-gray-200 pt-2 text-lg font-bold"><dt>Total</dt><dd class="st-num">{{ summary.total|money }}</dd></div>
     </dl>
+    {% if summary.balance_applied and not summary.total %}<p class="st-help font-semibold text-brand-success">Tu saldo a favor cubre todo el pedido: no tenés que transferir ni pagar nada. Lo empezamos a preparar apenas lo confirmes.</p>{% endif %}
     <p class="st-help">El flete del expreso lo pagás vos al recibir.</p>
     <div class="mt-4"><button type="submit" class="st-btn st-btn-primary st-btn-block" data-busy="Confirmando…">Confirmar el pedido</button></div>
   </aside>

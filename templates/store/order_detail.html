@@ -25,6 +25,8 @@
       <p class="mt-1">{{ next_steps }}</p>
       {% include "store/_payment_box.html" %}
     </div>
+    {% elif order.paid_with_balance %}
+    <p class="st-alert st-alert-success mt-4" role="status">Pagaste el pedido entero con tu saldo a favor: no tenés que transferir ni subir comprobante.</p>
     {% elif receipts %}
     <div class="mt-4 text-sm">
       <p class="font-semibold">Comprobantes</p>
@@ -34,7 +36,7 @@
 
     <dl class="mt-5 grid gap-3 text-sm sm:grid-cols-2">
       <div><dt class="text-brand-gray-600">Entrega</dt><dd class="font-semibold">{% if shipment.method == "pickup" %}Retiro en el local{% else %}Envío por expreso: {{ shipment.carrier_name|default:"—" }}{% endif %}</dd></div>
-      <div><dt class="text-brand-gray-600">Pago</dt><dd class="font-semibold">{{ order.get_payment_method_display }}</dd></div>
+      <div><dt class="text-brand-gray-600">Pago</dt><dd class="font-semibold">{% if order.paid_with_balance %}Pagado con saldo a favor{% else %}{{ order.get_payment_method_display }}{% endif %}</dd></div>
       {% if shipment.tracking_number %}<div><dt class="text-brand-gray-600">Seguimiento</dt><dd class="font-semibold font-mono">{{ shipment.tracking_number }}</dd></div>{% endif %}
       <div><dt class="text-brand-gray-600">Factura</dt><dd class="font-semibold">{% if doc.invoice_number %}{{ doc.invoice_number }} <span class="block font-normal text-brand-gray-600">La factura te llega por email desde Contabilium.</span>{% else %}Todavía no está emitida{% endif %}</dd></div>
     </dl>

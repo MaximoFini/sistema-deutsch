@@ -11,14 +11,14 @@
     <div class="mt-4 rounded-lg bg-brand-water-50 p-4">
       <h2 class="font-bold">Próximos pasos</h2>
       <p class="mt-1">{{ next_steps }}</p>
-      {% if order.payment_method == "transfer" %}
+      {% if order.payment_method == "transfer" and not order.paid_with_balance %}
         {% include "store/_payment_box.html" with next="done" %}
       {% endif %}
     </div>
 
     <dl class="mt-5 grid gap-2 text-sm sm:grid-cols-2">
       <div><dt class="text-brand-gray-600">Entrega</dt><dd class="font-semibold">{% if shipment.method == "pickup" %}Retiro en el local{% else %}Envío por expreso: {{ shipment.carrier_name }}{% endif %}</dd></div>
-      <div><dt class="text-brand-gray-600">Pago</dt><dd class="font-semibold">{{ order.get_payment_method_display }}</dd></div>
+      <div><dt class="text-brand-gray-600">Pago</dt><dd class="font-semibold">{% if order.paid_with_balance %}Pagado con saldo a favor{% else %}{{ order.get_payment_method_display }}{% endif %}</dd></div>
     </dl>
 
     <table class="st-table mt-5">

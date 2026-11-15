@@ -115,7 +115,12 @@ class StoreOrderDetailView(StoreAccessMixin, TemplateView):
             awaiting_payment=transfer and doc.status == states.AWAITING_PAYMENT,
             bank_missing=payments.BANK_DETAILS_MISSING,
             shortages=list(doc.shortages.filter(resolved_at__isnull=True)),
-            next_steps=checkout.next_steps(order.payment_method, delivery_of(shipment), store)
+            next_steps=checkout.next_steps(
+                order.payment_method,
+                delivery_of(shipment),
+                store,
+                paid_with_balance=order.paid_with_balance,
+            )
             if order
             else "",
         )

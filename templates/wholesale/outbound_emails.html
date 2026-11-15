@@ -8,9 +8,12 @@
 {% endif %}
 <div class="mb-3 flex flex-wrap gap-2 text-sm">
   {% for code, label in statuses %}
-  <a href="?estado={{ code }}" class="rounded-full border px-3 py-1 {% if code == status %}border-stone-900 bg-stone-900 text-white{% else %}border-stone-300 bg-white hover:bg-stone-100{% endif %}">{{ label }}{% if code == "pending" %} ({{ pending_emails }}){% endif %}</a>
+  <a href="?estado={{ code }}" class="rounded-full border px-3 py-1 {% if code == status %}border-stone-900 bg-stone-900 text-white{% else %}border-stone-300 bg-white hover:bg-stone-100{% endif %}">{{ label }}{% if code == "pending" %} ({{ pending_emails }}){% elif code == "expired" %} ({{ expired_emails }}){% endif %}</a>
   {% endfor %}
 </div>
+{% if expired_emails %}
+<p class="mb-3 text-sm text-stone-600">{{ expired_emails }} email{{ expired_emails|pluralize }} no se mand{{ expired_emails|pluralize:"ó,aron" }} porque quedaron más de {{ max_age_hours }} h en la cola y el aviso ya no servía (están en «Vencido, no enviado»). La aprobación y el rechazo del registro no vencen nunca.</p>
+{% endif %}
 <ul class="divide-y divide-stone-100 rounded-lg border border-stone-200 bg-white">
   {% for e in emails %}
   <li class="px-4 py-3">
