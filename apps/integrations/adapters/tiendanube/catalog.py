@@ -86,11 +86,16 @@ def upsert_product(data: dict) -> Product:
         else bool(data.get("published", True)),
     }
     fields["category"] = (fields["categories"][0] if fields["categories"] else "")[:150]
+    visible = fields.pop("is_active")
     if product is None:
-        product = Product.objects.create(**fields)
+        product = Product.objects.create(is_active=visible, **fields)
     else:
         for key, value in fields.items():
             setattr(product, key, value)
+        # Que un producto esté oculto en Tiendanube es un dato del canal (antes del lanzamiento, o porque se
+        # vende solo por mayorista o ML): no lo desactiva en el catálogo. Si vuelve a verse, se reactiva.
+        if visible:
+            product.is_active = True
         product.save()
     link_external(
         CHANNEL,

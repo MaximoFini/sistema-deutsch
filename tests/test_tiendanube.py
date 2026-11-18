@@ -648,3 +648,22 @@ def test_import_buttons_enqueue(admin_client, connected, in_memory_queue):
     admin_client.post(reverse("tiendanube:import", args=["catalogo"]))
     admin_client.post(reverse("tiendanube:import", args=["pedidos"]))
     assert len(in_memory_queue.jobs) == 2
+
+
+def test_hidden_in_tiendanube_does_not_deactivate_an_active_product():
+    catalog.upsert_product(tn_samples.product())
+    hidden = tn_samples.product()
+    hidden["published"] = False
+    hidden["visibility"] = "hidden"
+    catalog.upsert_product(hidden)
+    assert Product.objects.get().is_active  # oculto en TN no es inactivo en el catálogo
+    assert Variant.objects.filter(is_active=True).count() == 2
+
+
+def test_new_product_hidden_in_tiendanube_starts_inactive_and_reactivates_when_visible():
+    hidden = tn_samples.product()
+    hidden["visibility"] = "hidden"
+    catalog.upsert_product(hidden)
+    assert not Product.objects.get().is_active
+    catalog.upsert_product(tn_samples.product())
+    assert Product.objects.get().is_active
