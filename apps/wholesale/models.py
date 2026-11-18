@@ -47,7 +47,8 @@ class CustomerAccount(TimeStampedModel):
     )
     reviewed_at = models.DateTimeField("revisado", null=True, blank=True)
     rejection_reason = models.CharField("motivo del rechazo", max_length=500, blank=True)
-    accepted_terms_at = models.DateTimeField("aceptó los términos")
+    # Vacío en las cuentas creadas por invitación: el cliente acepta los términos al crear su contraseña.
+    accepted_terms_at = models.DateTimeField("aceptó los términos", null=True, blank=True)
 
     class Meta:
         verbose_name = "cuenta de cliente mayorista"
@@ -269,3 +270,41 @@ class OutboundEmail(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.subject} → {self.to}"
+
+
+class Invitation(TimeStampedModel):
+    """Invitación a crear la contraseña (M9-03). Una por cuenta; reenviar reemplaza el enlace anterior.
+
+    Del enlace solo se guarda el hash (SHA-256): el token viaja únicamente en el email. Mientras la
+    invitación está «sin enviar» no hay token. «Vencida» se calcula con `expires_at` y se refleja en el
+    estado con `invitations.sync_states()`.
+    """
+
+    class Status(models.TextChoices):
+        UNSENT = "unsent", "Sin enviar"
+        SENT = "sent", "Enviada"
+        ACCEPTED = "accepted", "Aceptada"
+        EXPIRED = "expired", "Vencida"
+        BOUNCED = "bounced", "Rebotada"
+
+    account = models.OneToOneField(CustomerAccount, on_delete=models.CASCADE, related_name="invitation")
+    token_hash = models.CharField("huella del enlace", max_length=64, blank=True, db_index=True)
+    status = models.CharField(
+        "estado", max_length=10, choices=Status.choices, default=Status.UNSENT, db_index=True
+    )
+    sent_to = models.EmailField("enviada a", blank=True)
+    sent_at = models.DateTimeField("enviada", null=True, blank=True)
+    sent_count = models.PositiveSmallIntegerField("veces enviada", default=0)
+    expires_at = models.DateTimeField("vence", null=True, blank=True)
+    accepted_at = models.DateTimeField("aceptada", null=True, blank=True)
+    last_email = models.ForeignKey(
+        OutboundEmail, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+
+    class Meta:
+        verbose_name = "invitación"
+        verbose_name_plural = "invitaciones"
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Invitación de {self.account} ({self.get_status_display()})"

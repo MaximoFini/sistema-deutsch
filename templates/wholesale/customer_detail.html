@@ -27,7 +27,7 @@
         {% for error in field.errors %}<span class="mt-1 block text-xs text-red-700">{{ error }}</span>{% endfor %}
       </label>
       {% endfor %}
-      <p class="text-sm text-stone-600 sm:col-span-2">Email de acceso: <strong>{{ account.user.email }}</strong> · Aceptó los términos el {{ account.accepted_terms_at|date:"d/m/Y H:i" }}</p>
+      <p class="text-sm text-stone-600 sm:col-span-2">Email de acceso: <strong>{{ account.user.email }}</strong> · {% if account.accepted_terms_at %}Aceptó los términos el {{ account.accepted_terms_at|date:"d/m/Y H:i" }}{% else %}Todavía no aceptó los términos (los acepta al crear su contraseña){% endif %}</p>
       {% if can_manage %}<div class="sm:col-span-2"><button class="rounded bg-stone-900 px-3 py-2 text-sm text-white">Guardar correcciones</button></div>{% endif %}
     </form>
   </section>

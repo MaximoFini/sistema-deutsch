@@ -205,6 +205,16 @@ STORE_EMAILS_ENABLED = env.bool(
 # M8a: un email que quedó más de estas horas en la cola no se manda ("Vencido, no enviado"); la aprobación
 # y el rechazo del registro no vencen nunca.
 STORE_EMAIL_MAX_AGE_HOURS = env.int("STORE_EMAIL_MAX_AGE_HOURS", default=72)
+# M9-03 · invitaciones a los clientes mayoristas ya cargados. El envío está APAGADO hasta el día del
+# lanzamiento: sin este interruptor no se genera ningún enlace ni se encola ningún email de invitación.
+STORE_INVITATIONS_ENABLED = env.bool("STORE_INVITATIONS_ENABLED", default=False)
+STORE_INVITATION_DAYS = env.int("STORE_INVITATION_DAYS", default=7)
+# Límite de ritmo: invitaciones que se pueden encolar por hora (el resto queda «sin enviar» para la próxima).
+STORE_INVITATIONS_PER_HOUR = env.int("STORE_INVITATIONS_PER_HOUR", default=200)
+# Pedidos de «mandame otra invitación» desde el ingreso, por IP y por hora.
+STORE_INVITATION_REQUESTS_PER_IP_HOUR = env.int("STORE_INVITATION_REQUESTS_PER_IP_HOUR", default=5)
+# Ensayo (M9-R3.8): se registra qué se mandaría y no se encola ni se manda nada.
+STORE_EMAIL_DRY_RUN = env.bool("STORE_EMAIL_DRY_RUN", default=False)
 
 SENTRY_DSN = env("SENTRY_DSN", default="")
 ENVIRONMENT_NAME = env("ENVIRONMENT_NAME", default="local")

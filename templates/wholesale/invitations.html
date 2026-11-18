@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Invitaciones · Clientes mayoristas · Sistema Deutsch{% endblock %}
+{% block content %}
+<h1 class="mb-3 text-xl font-semibold">Tienda mayorista</h1>
+{% include "wholesale/_tabs.html" with active="invitations" %}
+
+{% if not enabled %}
+<div class="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+  <strong>El envío de invitaciones está apagado.</strong> {{ disabled_message }} Mientras tanto las cuentas quedan preparadas y no se manda ningún email.
+</div>
+{% elif dry_run %}
+<div class="mb-4 rounded border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">Modo ensayo: al enviar solo se registra qué se mandaría, no se encola ni se manda nada.</div>
+{% elif not emails_enabled %}
+<div class="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">Todavía no hay correo saliente configurado: las invitaciones quedarían en la cola de emails hasta que se configure.</div>
+{% endif %}
+
+<section class="mb-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-7" aria-label="Totales">
+  <div class="rounded-lg border border-stone-200 bg-white p-3"><p class="text-xs text-stone-500">Invitados</p><p class="text-2xl font-semibold tabular-nums">{{ totals.invited }}</p></div>
+  <div class="rounded-lg border border-stone-200 bg-white p-3"><p class="text-xs text-stone-500">Sin enviar</p><p class="text-2xl font-semibold tabular-nums">{{ totals.unsent }}</p></div>
+  <div class="rounded-lg border border-stone-200 bg-white p-3"><p class="text-xs text-stone-500">Enviadas</p><p class="text-2xl font-semibold tabular-nums">{{ totals.sent }}</p></div>
+  <div class="rounded-lg border border-stone-200 bg-white p-3"><p class="text-xs text-stone-500">Entraron</p><p class="text-2xl font-semibold tabular-nums text-emerald-800">{{ totals.accepted }}</p></div>
+  <div class="rounded-lg border border-stone-200 bg-white p-3"><p class="text-xs text-stone-500">Vencidas</p><p class="text-2xl font-semibold tabular-nums">{{ totals.expired }}</p></div>
+  <div class="rounded-lg border border-stone-200 bg-white p-3"><p class="text-xs text-stone-500">Rebotadas</p><p class="text-2xl font-semibold tabular-nums">{{ totals.bounced }}</p></div>
+  <div class="rounded-lg border border-stone-200 bg-white p-3"><p class="text-xs text-stone-500">No incluidos</p><p class="text-2xl font-semibold tabular-nums {% if excluded_total %}text-amber-800{% endif %}">{{ excluded_total }}</p></div>
+</section>
+
+<section class="mb-4 rounded-lg border border-stone-200 bg-white p-4 text-sm">
+  <h2 class="mb-2 font-semibold">Enviar invitaciones</h2>
+  <p class="mb-3 text-stone-600">Cada cliente recibe un enlace de un solo uso que vence a los {{ days }} días, para crear su contraseña y aceptar los términos. Se encolan hasta {{ per_hour }} por hora (ahora se pueden encolar {{ budget }}).</p>
+  <div class="flex flex-wrap items-start gap-3">
+    <form method="post" action="{% url 'wholesale_customers:invitations_send' %}">{% csrf_token %}
+      <input type="hidden" name="scope" value="unsent">
+      <button {% if not enabled or not totals.unsent %}disabled{% endif %} class="rounded bg-stone-900 px-3 py-2 text-white disabled:cursor-not-allowed disabled:bg-stone-300" onclick="return confirm('¿Enviar la invitación a los {{ totals.unsent }} clientes que todavía no la recibieron?')">Enviar invitaciones ({{ totals.unsent }})</button>
+    </form>
+    <form method="post" action="{% url 'wholesale_customers:invitations_send' %}">{% csrf_token %}
+      <input type="hidden" name="scope" value="not_entered">
+      <button {% if not enabled or not not_entered %}disabled{% endif %} class="rounded border border-stone-300 px-3 py-2 disabled:cursor-not-allowed disabled:text-stone-400" onclick="return confirm('¿Reenviar la invitación a los {{ not_entered }} que todavía no entraron?')">Reenviar a los que no entraron ({{ not_entered }})</button>
+    </form>
+    <form id="send-form" method="post" action="{% url 'wholesale_customers:invitations_send' %}">{% csrf_token %}
+      <input type="hidden" name="scope" value="selected">
+      <button {% if not enabled %}disabled{% endif %} class="rounded border border-stone-300 px-3 py-2 disabled:cursor-not-allowed disabled:text-stone-400">Enviar a los marcados</button>
+    </form>
+  </div>
+  {% if not enabled %}<p class="mt-2 text-xs text-stone-500">Los botones están apagados hasta que se habilite el envío el día del lanzamiento.</p>{% endif %}
+</section>
+
+<div class="mb-3 flex flex-wrap items-center gap-3">
+  <div class="flex flex-wrap gap-2 text-sm">
+    <a href="?{% if q %}q={{ q|urlencode }}{% endif %}" class="rounded-full border px-3 py-1 {% if not status %}border-stone-900 bg-stone-900 text-white{% else %}border-stone-300 bg-white hover:bg-stone-100{% endif %}">Todas ({{ totals.invited }})</a>
+    {% for code, label in statuses %}
+      <a href="?estado={{ code }}{% if q %}&q={{ q|urlencode }}{% endif %}" class="rounded-full border px-3 py-1 {% if code == status %}border-stone-900 bg-stone-900 text-white{% else %}border-stone-300 bg-white hover:bg-stone-100{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </div>
+  <form method="get" class="ml-auto flex gap-2">
+    <input type="hidden" name="estado" value="{{ status }}">
+    <input type="search" name="q" value="{{ q }}" placeholder="Nombre, CUIT o email" class="rounded border border-stone-300 px-3 py-1.5 text-sm">
+    <button class="rounded bg-stone-900 px-3 py-1.5 text-sm text-white">Buscar</button>
+  </form>
+</div>
+
+<div class="overflow-x-auto rounded-lg border border-stone-200 bg-white">
+  <table class="w-full text-sm">
+    <thead class="bg-stone-50 text-left text-stone-600">
+      <tr><th class="px-3 py-2"><span class="sr-only">Marcar</span></th><th class="px-3 py-2">Cliente</th><th class="px-3 py-2">CUIT</th><th class="px-3 py-2">Email</th><th class="px-3 py-2">Estado</th><th class="px-3 py-2">Enviada</th><th class="px-3 py-2">Vence</th><th class="px-3 py-2">Acciones</th></tr>
+    </thead>
+    <tbody class="divide-y divide-stone-100">
+      {% for inv in invitations %}
+      <tr class="align-top hover:bg-stone-50">
+        <td class="px-3 py-2">{% if inv.status != "accepted" %}<input type="checkbox" name="accounts" value="{{ inv.account_id }}" form="send-form" aria-label="Marcar a {{ inv.account.display_name }}">{% endif %}</td>
+        <td class="px-3 py-2"><a href="{% url 'wholesale_customers:detail' inv.account_id %}" class="font-medium underline">{{ inv.account.display_name }}</a></td>
+        <td class="px-3 py-2 tabular-nums">{{ inv.account.cuit }}</td>
+        <td class="px-3 py-2">
+          {{ inv.account.user.email }}
+          {% if inv.status != "accepted" %}
+          <details class="mt-1">
+            <summary class="cursor-pointer text-xs text-stone-600 underline">Corregir email</summary>
+            <form method="post" action="{% url 'wholesale_customers:invitation_email' inv.account_id %}" class="mt-1 flex gap-1">{% csrf_token %}
+              <input type="email" name="email" value="{{ inv.account.user.email }}" required class="w-56 rounded border border-stone-300 px-2 py-1 text-xs">
+              <button class="rounded bg-stone-900 px-2 py-1 text-xs text-white">Guardar</button>
+            </form>
+            <p class="mt-1 max-w-xs text-xs text-stone-500">Si ya se mandó un enlace, queda anulado y hay que volver a enviarlo.</p>
+          </details>
+          {% endif %}
+        </td>
+        <td class="px-3 py-2"><span class="rounded px-2 py-0.5 text-xs font-medium {% if inv.status == 'accepted' %}bg-emerald-100 text-emerald-800{% elif inv.status == 'sent' %}bg-sky-100 text-sky-900{% elif inv.status == 'unsent' %}bg-stone-200 text-stone-800{% else %}bg-amber-100 text-amber-900{% endif %}">{{ inv.get_status_display }}</span></td>
+        <td class="px-3 py-2">{% if inv.sent_at %}{{ inv.sent_at|date:"d/m/Y H:i" }}{% if inv.sent_count > 1 %} · {{ inv.sent_count }} veces{% endif %}{% else %}—{% endif %}</td>
+        <td class="px-3 py-2">{% if inv.status == "accepted" %}Entró el {{ inv.accepted_at|date:"d/m/Y" }}{% elif inv.expires_at %}{{ inv.expires_at|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+        <td class="px-3 py-2">
+          {% if inv.status != "accepted" %}
+          <form method="post" action="{% url 'wholesale_customers:invitation_resend' inv.account_id %}">{% csrf_token %}
+            <button {% if not enabled %}disabled title="Todavía no se habilitó el envío"{% endif %} class="rounded border border-stone-300 px-2 py-1 text-xs hover:bg-stone-50 disabled:cursor-not-allowed disabled:text-stone-400">{% if inv.status == "unsent" %}Enviar{% else %}Reenviar{% endif %}</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="px-3 py-6 text-center text-stone-500">No hay invitaciones en esta lista. {% if not totals.invited %}Para prepararlas: <code>manage.py invitar_mayoristas preparar</code>.{% endif %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "_pagination.html" with noun="invitaciones" %}
+
+<section class="mt-8" id="no-incluidos">
+  <h2 class="mb-1 text-lg font-semibold">No incluidos ({{ excluded_total }})</h2>
+  <p class="mb-3 text-sm text-stone-600">Clientes mayoristas que no recibieron cuenta ni invitación. Se corrigen en Contabilium (o con «Corregir email» si ya tienen cuenta) y se vuelve a preparar: nada se duplica.</p>
+  <div class="mb-3 flex flex-wrap gap-2 text-sm">
+    <a href="?{% if status %}estado={{ status }}{% endif %}#no-incluidos" class="rounded-full border px-3 py-1 {% if not reason %}border-stone-900 bg-stone-900 text-white{% else %}border-stone-300 bg-white hover:bg-stone-100{% endif %}">Todos ({{ excluded_total }})</a>
+    {% for code, label, count in reason_counts %}
+      <a href="?motivo={{ code }}{% if status %}&estado={{ status }}{% endif %}#no-incluidos" class="rounded-full border px-3 py-1 {% if code == reason %}border-stone-900 bg-stone-900 text-white{% else %}border-stone-300 bg-white hover:bg-stone-100{% endif %}">{{ label }} ({{ count }})</a>
+    {% endfor %}
+  </div>
+  <div class="overflow-x-auto rounded-lg border border-stone-200 bg-white">
+    <table class="w-full text-sm">
+      <thead class="bg-stone-50 text-left text-stone-600"><tr><th class="px-3 py-2">Cliente</th><th class="px-3 py-2">Motivo</th><th class="px-3 py-2">Detalle</th></tr></thead>
+      <tbody class="divide-y divide-stone-100">
+        {% for d in excluded %}
+        <tr><td class="px-3 py-2">{{ d.customer }}</td><td class="px-3 py-2">{{ d.reason_label }}</td><td class="px-3 py-2 text-stone-600">{{ d.detail }}</td></tr>
+        {% empty %}
+        <tr><td colspan="3" class="px-3 py-6 text-center text-stone-500">No hay clientes sin incluir.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if excluded_more %}<p class="mt-2 text-sm text-stone-500">Se muestran los primeros {{ excluded|length }}; faltan {{ excluded_more }} más (usá los filtros por motivo).</p>{% endif %}
+</section>
+{% endblock %}

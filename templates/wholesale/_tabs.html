@@ -1,6 +1,7 @@
 {# Pestañas de la tienda mayorista en el panel. #}
 <nav class="mb-4 flex flex-wrap gap-4 border-b border-stone-200 pb-2 text-sm">
   {% if perms.wholesale.view_customeraccount %}<a href="{% url 'wholesale_customers:list' %}" class="{% if active == 'customers' %}font-semibold underline{% else %}hover:underline{% endif %}">Clientes</a>{% endif %}
+  {% if perms.wholesale.manage_customers %}<a href="{% url 'wholesale_customers:invitations' %}" class="{% if active == 'invitations' %}font-semibold underline{% else %}hover:underline{% endif %}">Invitaciones</a>{% endif %}
   {% if perms.wholesale.manage_store %}
   <a href="{% url 'store_admin:settings' %}" class="{% if active == 'settings' %}font-semibold underline{% else %}hover:underline{% endif %}">Configuración</a>
   <a href="{% url 'store_admin:email_templates' %}" class="{% if active == 'templates' %}font-semibold underline{% else %}hover:underline{% endif %}">Textos de los emails</a>

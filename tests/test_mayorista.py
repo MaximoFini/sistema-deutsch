@@ -179,6 +179,7 @@ def test_t1_settings_templates_and_alerts_seeded():
         "shortage_query",
         "dispatched",
         "ready_for_pickup",
+        "invitation",
     }
     for code in [
         "wholesale.registration_new",

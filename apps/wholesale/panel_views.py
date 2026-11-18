@@ -14,9 +14,9 @@ from apps.accounts.mixins import PanelPermissionRequiredMixin
 from apps.audit import services as audit
 from apps.sales.models import SalesDocument
 
-from . import accounts, mail
-from .forms import AccountDataForm, EmailTemplateForm, StoreSettingsForm
-from .models import CustomerAccount, EmailTemplate, OutboundEmail, StoreSettings
+from . import accounts, invitations, mail
+from .forms import AccountDataForm, EmailTemplateForm, InvitationEmailForm, StoreSettingsForm
+from .models import CustomerAccount, EmailTemplate, Invitation, OutboundEmail, StoreSettings
 
 STATUS_TABS = [
     ("pending", "Pendientes"),
@@ -166,6 +166,168 @@ class CustomerActionView(PanelPermissionRequiredMixin, View):
         return redirect("wholesale_customers:detail", pk=pk)
 
 
+# ── Invitaciones a los clientes ya cargados (M9-03) ───────────────────────────
+
+EXCLUSION_LIMIT = 300  # filas de «no incluidos» que se listan (los totales son siempre completos)
+
+
+class InvitationTrackingView(PanelPermissionRequiredMixin, TemplateView):
+    """Seguimiento de invitaciones: totales, tabla filtrable, no incluidos y el botón de envío."""
+
+    permission_required = "wholesale.manage_customers"
+    template_name = "wholesale/invitations.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        totals = invitations.totals()  # también pone al día vencidas y rebotadas
+        status = self.request.GET.get("estado", "")
+        if status not in dict(Invitation.Status.choices):
+            status = ""
+        q = self.request.GET.get("q", "").strip()
+        qs = Invitation.objects.select_related("account__customer", "account__user")
+        if status:
+            qs = qs.filter(status=status)
+        if q:
+            digits = accounts.normalize_cuit(q)
+            cond = Q(account__customer__legal_name__icontains=q) | Q(
+                account__customer__trade_name__icontains=q
+            )
+            cond |= Q(account__user__email__icontains=q)
+            if digits:
+                cond |= Q(account__cuit__contains=digits)
+            qs = qs.filter(cond)
+        page = Paginator(qs.order_by("account__customer__legal_name", "pk"), 50).get_page(
+            self.request.GET.get("page")
+        )
+        excluded = invitations.exclusions()
+        reason = self.request.GET.get("motivo", "")
+        if reason not in invitations.REASONS:
+            reason = ""
+        shown = [d for d in excluded if not reason or d.reason == reason]
+        reason_counts = [
+            (code, label, sum(1 for d in excluded if d.reason == code))
+            for code, label in invitations.REASONS.items()
+        ]
+        ctx.update(
+            totals=totals,
+            invitations=page.object_list,
+            page_obj=page,
+            is_paginated=page.has_other_pages(),
+            paginator=page.paginator,
+            status=status,
+            q=q,
+            querystring=urlencode({k: v for k, v in {"estado": status, "q": q}.items() if v}),
+            statuses=Invitation.Status.choices,
+            excluded_total=len(excluded),
+            reason_counts=reason_counts,
+            reason=reason,
+            excluded=shown[:EXCLUSION_LIMIT],
+            excluded_more=max(0, len(shown) - EXCLUSION_LIMIT),
+            enabled=settings.STORE_INVITATIONS_ENABLED,
+            dry_run=settings.STORE_EMAIL_DRY_RUN,
+            disabled_message=invitations.DISABLED_MESSAGE,
+            days=settings.STORE_INVITATION_DAYS,
+            per_hour=settings.STORE_INVITATIONS_PER_HOUR,
+            budget=invitations.hourly_budget(),
+            not_entered=totals["sent"] + totals["expired"] + totals["bounced"],
+            emails_enabled=settings.STORE_EMAILS_ENABLED,
+        )
+        return ctx
+
+
+def _report_send(request, result) -> None:
+    if result.dry_run:
+        messages.warning(
+            request,
+            f"Ensayo: se mandarían {result.would_send} invitaciones. No se envió ni se encoló nada.",
+        )
+    elif result.queued:
+        messages.success(
+            request,
+            f"Dejamos {result.queued} invitaciones en la cola de emails. "
+            "Salen cuando el correo saliente esté activo.",
+        )
+    else:
+        messages.info(request, "No había invitaciones para enviar.")
+    if result.deferred:
+        messages.warning(
+            request,
+            f"Quedaron {result.deferred} para más tarde por el límite de {settings.STORE_INVITATIONS_PER_HOUR} "
+            "por hora. Volvé a apretar el botón en un rato.",
+        )
+    for account, why in result.skipped[:5]:
+        messages.info(request, f"{account.display_name}: {why}")
+
+
+class InvitationSendView(PanelPermissionRequiredMixin, View):
+    """«Enviar invitaciones»: a los que faltan, a los seleccionados o reenviar a los que no entraron."""
+
+    permission_required = "wholesale.manage_customers"
+    http_method_names = ["post"]
+
+    def post(self, request):
+        scope = request.POST.get("scope", "unsent")
+        if scope == "selected":
+            ids = [int(v) for v in request.POST.getlist("accounts") if v.isdigit()]
+            if not ids:
+                messages.error(request, "Marcá al menos un cliente de la tabla.")
+                return redirect("wholesale_customers:invitations")
+            targets = CustomerAccount.objects.filter(pk__in=ids)
+        elif scope in ("unsent", "not_entered"):
+            targets = invitations.accounts_for(scope)
+        else:
+            messages.error(request, "Acción desconocida.")
+            return redirect("wholesale_customers:invitations")
+        try:
+            result = invitations.send_invitations(targets, request.user, request=request)
+        except invitations.InvitationsDisabled as exc:
+            messages.error(request, str(exc))
+        else:
+            _report_send(request, result)
+        return redirect("wholesale_customers:invitations")
+
+
+class InvitationResendView(PanelPermissionRequiredMixin, View):
+    permission_required = "wholesale.manage_customers"
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        account = get_object_or_404(CustomerAccount, pk=pk)
+        try:
+            result = invitations.send_invitations([account], request.user, request=request)
+        except invitations.InvitationsDisabled as exc:
+            messages.error(request, str(exc))
+        else:
+            _report_send(request, result)
+        return redirect("wholesale_customers:invitations")
+
+
+class InvitationEmailView(PanelPermissionRequiredMixin, View):
+    """Corregir el email de un cliente antes de mandarle la invitación."""
+
+    permission_required = "wholesale.manage_customers"
+    http_method_names = ["post"]
+
+    def post(self, request, pk):
+        account = get_object_or_404(CustomerAccount, pk=pk)
+        form = InvitationEmailForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, "Escribí un email válido.")
+        else:
+            try:
+                invitations.change_email(
+                    account, form.cleaned_data["email"], user=request.user, request=request
+                )
+            except accounts.AccountError as exc:
+                messages.error(request, str(exc))
+            else:
+                messages.success(
+                    request,
+                    f"Corregimos el email de {account.display_name}. Si ya tenía un enlace, quedó anulado.",
+                )
+        return redirect("wholesale_customers:invitations")
+
+
 # ── Configuración de la tienda, textos y cola de emails ──────────────────────
 
 
@@ -265,6 +427,8 @@ class OutboundEmailListView(PanelPermissionRequiredMixin, TemplateView):
             status = "pending"
         qs = OutboundEmail.objects.filter(status=status).order_by("-created_at")
         page = Paginator(qs, 50).get_page(self.request.GET.get("page"))
+        for email in page.object_list:  # el enlace personal de una invitación no se muestra en el panel
+            email.body_text = invitations.mask_token(email.body_text)
         ctx.update(
             page_obj=page,
             emails=page.object_list,

@@ -11,6 +11,13 @@ urlpatterns = [
     path("salir/", views.StoreLogoutView.as_view(), name="logout"),
     path("registro/", views.RegisterView.as_view(), name="register"),
     path("registro/recibido/", views.RegisterDoneView.as_view(), name="register_done"),
+    path("invitacion/pedir/", views.InvitationRequestView.as_view(), name="invitation_request"),
+    path(
+        "invitacion/pedir/enviado/",
+        views.InvitationRequestDoneView.as_view(),
+        name="invitation_request_done",
+    ),
+    path("invitacion/<slug:token>/", views.InvitationView.as_view(), name="invitation"),
     path("cuenta-pendiente/", views.PendingView.as_view(), name="pending"),
     path("recuperar/", views.StorePasswordResetView.as_view(), name="password_reset"),
     path("recuperar/enviado/", views.StorePasswordResetDoneView.as_view(), name="password_reset_done"),

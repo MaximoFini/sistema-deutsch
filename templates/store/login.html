@@ -11,6 +11,7 @@
   {% include "store/components/button.html" with label="Ingresar" block=True %}
 </form>
 <p class="mt-4 text-center text-sm"><a href="{% url 'store:password_reset' %}" class="st-link">Me olvidé la contraseña</a></p>
+<p class="mt-2 text-center text-sm"><a href="{% url 'store:invitation_request' %}" class="st-link">Me invitaron y mi enlace venció</a></p>
 {% endblock %}
 {% block after %}
 <div class="mt-6 rounded-lg bg-brand-water p-4 text-center">

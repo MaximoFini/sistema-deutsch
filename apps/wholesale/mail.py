@@ -6,7 +6,7 @@ correo saliente configurado (`STORE_EMAILS_ENABLED`); mientras tanto quedan en l
 panel.
 
 M8a (T2): al enviar, un email con más de `STORE_EMAIL_MAX_AGE_HOURS` (72 h) en la cola ya no sirve ("tu
-pago vence mañana" de hace semanas): queda "Vencido, no enviado". La aprobación o el rechazo del registro
+pago vence mañana" de hace semanas): queda "Vencido, no enviado". La aprobación, el rechazo del registro y la invitación
 no vencen nunca (siguen siendo útiles).
 """
 
@@ -28,7 +28,7 @@ from .models import EmailTemplate, OutboundEmail
 logger = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 5
-NEVER_EXPIRE = ("registration_approved", "registration_rejected")
+NEVER_EXPIRE = ("registration_approved", "registration_rejected", "invitation")
 EXPIRED_NOTE = "No se mandó: quedó más de {hours} h en la cola y el aviso ya no sirve."
 VARIABLE = re.compile(r"\{(\w+)\}")
 # Variables que se pueden usar en los textos (se muestran como ayuda en el panel).
@@ -40,7 +40,7 @@ VARIABLES = {
     "motivo": "Motivo (rechazo)",
     "proximos_pasos": "Próximos pasos según el medio de pago",
     "datos_bancarios": "Datos para transferir",
-    "vence": "Fecha de vencimiento del pago",
+    "vence": "Fecha de vencimiento (del pago o del enlace de invitación)",
     "detalle": "Detalle de lo que falta",
     "transporte": "Transporte",
     "seguimiento": "Código de seguimiento",

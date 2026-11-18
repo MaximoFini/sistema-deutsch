@@ -7,6 +7,10 @@ from . import panel_views as views
 
 customer_urlpatterns = [
     path("", views.CustomerListView.as_view(), name="list"),
+    path("invitaciones/", views.InvitationTrackingView.as_view(), name="invitations"),
+    path("invitaciones/enviar/", views.InvitationSendView.as_view(), name="invitations_send"),
+    path("invitaciones/<int:pk>/reenviar/", views.InvitationResendView.as_view(), name="invitation_resend"),
+    path("invitaciones/<int:pk>/email/", views.InvitationEmailView.as_view(), name="invitation_email"),
     path("<int:pk>/", views.CustomerDetailView.as_view(), name="detail"),
     path("<int:pk>/accion/", views.CustomerActionView.as_view(), name="action"),
 ]

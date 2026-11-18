@@ -152,6 +152,74 @@ class RegistrationForm(StoreFormMixin, forms.Form):
         return bool(self.data.get("website"))
 
 
+class InvitationAcceptForm(StoreFormMixin, forms.Form):
+    """El cliente invitado elige su contraseña y acepta los términos."""
+
+    password1 = forms.CharField(
+        label="Contraseña",
+        strip=False,
+        help_text="Al menos 10 caracteres. Que no sea solo números ni algo fácil de adivinar.",
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+    password2 = forms.CharField(
+        label="Repetí la contraseña",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+    accept_terms = forms.BooleanField(
+        label="Leí y acepto los términos de venta mayorista y la política de privacidad",
+        error_messages={"required": "Para continuar tenés que aceptar los términos."},
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    def clean(self):
+        data = super().clean()
+        p1, p2 = data.get("password1"), data.get("password2")
+        if p1 and p2 and p1 != p2:
+            self.add_error("password2", "Las contraseñas no coinciden.")
+        elif p1:
+            try:
+                password_validation.validate_password(p1, self.user)
+            except forms.ValidationError as exc:
+                self.add_error("password1", exc)
+        return data
+
+
+class InvitationRequestForm(StoreFormMixin, forms.Form):
+    """«Pedir otra invitación» con CUIT y email. Los errores no revelan si la cuenta existe."""
+
+    cuit = forms.CharField(
+        label="CUIT",
+        max_length=13,
+        help_text="Los 11 números, con o sin guiones.",
+        widget=forms.TextInput(attrs={"inputmode": "numeric", "autocomplete": "off"}),
+    )
+    email = forms.EmailField(
+        label="Email",
+        widget=forms.EmailInput(attrs={"autocomplete": "email"}),
+        help_text="El mismo con el que te invitamos.",
+    )
+    # Campo trampa: invisible para las personas; los bots lo completan.
+    website = forms.CharField(
+        required=False,
+        label="Sitio web",
+        widget=forms.TextInput(attrs={"tabindex": "-1", "autocomplete": "off"}),
+    )
+
+    @property
+    def is_bot(self) -> bool:
+        return bool(self.data.get("website"))
+
+
+class InvitationEmailForm(forms.Form):
+    """Panel: corregir el email de un cliente antes de mandarle la invitación."""
+
+    email = forms.EmailField(label="Email")
+
+
 class AccountDataForm(forms.Form):
     """Panel: el administrador corrige los datos del registro."""
 

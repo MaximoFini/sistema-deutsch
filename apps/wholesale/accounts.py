@@ -106,16 +106,14 @@ def store_url(name: str, *args) -> str:
 # ── Límite de registros por IP ────────────────────────────────────────────────
 
 
-def registration_allowed(ip: str | None) -> bool:
-    """Token bucket por IP (mismo `RateLimitBucket` de M0): N registros por hora."""
-    if not ip:
-        return True
-    capacity = float(settings.WHOLESALE_REGISTRATIONS_PER_IP_HOUR)
+def _bucket_allowed(key: str, per_hour: int) -> bool:
+    """Token bucket (mismo `RateLimitBucket` de M0): `per_hour` usos por hora para esa clave."""
+    capacity = float(per_hour)
     refill = capacity / 3600.0
     now = timezone.now()
     with transaction.atomic():
         bucket, _ = RateLimitBucket.objects.select_for_update().get_or_create(
-            key=f"store-register:{ip}"[:60],
+            key=key[:60],
             defaults={
                 "capacity": capacity,
                 "refill_per_second": refill,
@@ -131,6 +129,20 @@ def registration_allowed(ip: str | None) -> bool:
             bucket.tokens -= 1
         bucket.save(update_fields=["tokens", "updated_at"])
     return allowed
+
+
+def registration_allowed(ip: str | None) -> bool:
+    """N registros por hora y por IP."""
+    if not ip:
+        return True
+    return _bucket_allowed(f"store-register:{ip}", settings.WHOLESALE_REGISTRATIONS_PER_IP_HOUR)
+
+
+def invitation_request_allowed(ip: str | None) -> bool:
+    """N pedidos de «mandame otra invitación» por hora y por IP."""
+    if not ip:
+        return True
+    return _bucket_allowed(f"store-invite:{ip}", settings.STORE_INVITATION_REQUESTS_PER_IP_HOUR)
 
 
 # ── Registro ─────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 # Requirements: Cierre y lanzamiento (módulo M9)
 
-**Status:** Draft, esperando aprobación (2026-11-17)
+**Status:** Approved (2026-11-18) — alcance de esta tanda: US-3 (cuentas e invitaciones), sin enviar emails
 **Tickets:** DDEV-56 (M9-01), DDEV-57 (M9-02), DDEV-58 (M9-03), DDEV-59 (M9-04).
 **Depende de:** M0 a M8a terminados. Lo que depende de terceros (apps de ML y TN, servidor, subdominio, SMTP, export real de Contabilium) queda como checklist, no como código.
 

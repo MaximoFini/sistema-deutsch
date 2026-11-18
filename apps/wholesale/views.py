@@ -3,12 +3,15 @@
 from decimal import Decimal
 
 from django.contrib import messages
+from django.contrib.auth import login
 from django.contrib.auth import views as auth_views
 from django.core.paginator import Paginator
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
+from django.utils.decorators import method_decorator
 from django.views import View
+from django.views.decorators.cache import never_cache
 from django.views.generic import FormView, TemplateView
 
 from apps.accounts.mixins import PanelLoginRequiredMixin, is_store_customer
@@ -16,11 +19,13 @@ from apps.catalog.models import Product
 from apps.sales import states
 from apps.sales.models import SalesDocument
 
-from . import accounts, acting, catalog, checkout, payments
+from . import accounts, acting, catalog, checkout, invitations, payments
 from . import cart as cart_service
 from .access import StoreAccessMixin, StorePublicMixin
 from .forms import (
     CheckoutForm,
+    InvitationAcceptForm,
+    InvitationRequestForm,
     RegistrationForm,
     StoreLoginForm,
     StorePasswordResetForm,
@@ -139,6 +144,80 @@ class PendingView(StorePublicMixin, TemplateView):
         ctx = super().get_context_data(**kwargs)
         ctx["account"] = self.account
         return ctx
+
+
+# ── Invitación para crear la contraseña ───────────────────────────────────────
+
+
+@method_decorator(never_cache, name="dispatch")  # el enlace lleva el token: nada de caché
+class InvitationView(StorePublicMixin, FormView):
+    """`/invitacion/<token>/`: el cliente elige su contraseña, acepta los términos y queda con sesión."""
+
+    template_name = "store/invitation.html"
+    form_class = InvitationAcceptForm
+
+    def dispatch(self, request, *args, **kwargs):
+        self.invitation = invitations.find_valid(kwargs["token"])
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        if self.invitation is not None:
+            kwargs["user"] = self.invitation.account.user
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["valid"] = self.invitation is not None
+        ctx["invitation"] = self.invitation
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        if self.invitation is None:  # una sola respuesta para usado, vencido o inventado
+            return self.get(request, *args, **kwargs)
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        try:
+            user = invitations.accept(
+                self.kwargs["token"], password=form.cleaned_data["password1"], request=self.request
+            )
+        except accounts.AccountError:
+            self.invitation = None
+            return self.render_to_response(self.get_context_data())
+        login(self.request, user, backend="apps.accounts.backends.PanelBackend")
+        messages.success(self.request, "¡Listo! Creaste tu contraseña. Ya podés ver los precios mayoristas.")
+        return redirect("store:home")
+
+
+class InvitationRequestView(StorePublicMixin, FormView):
+    """Pedir otra invitación con CUIT + email. La respuesta es siempre la misma."""
+
+    template_name = "store/invitation_request.html"
+    form_class = InvitationRequestForm
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect("store:home")
+        return super().dispatch(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        form = self.get_form()
+        if form.is_bot:
+            return redirect("store:invitation_request_done")
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        # Con límite de ritmo por IP, igual que el registro; pasado el límite se responde lo mismo.
+        if accounts.invitation_request_allowed(client_ip(self.request)):
+            invitations.request_new(
+                form.cleaned_data["cuit"], form.cleaned_data["email"], request=self.request
+            )
+        return redirect("store:invitation_request_done")
+
+
+class InvitationRequestDoneView(StorePublicMixin, TemplateView):
+    template_name = "store/invitation_request_done.html"
 
 
 # ── Guía de estilo (solo usuarios internos) ───────────────────────────────────

@@ -1,0 +1,20 @@
+{% extends "store/_auth_base.html" %}
+{% block title %}Creá tu contraseña{% endblock %}
+{% block heading %}{% if valid %}Creá tu contraseña{% else %}Este enlace ya no sirve{% endif %}{% endblock %}
+{% block intro %}{% if valid %}<p class="text-brand-gray-600">Hola, {{ invitation.account.display_name }}. Elegí una contraseña para entrar a la tienda mayorista de Deutsch.</p>{% endif %}{% endblock %}
+{% block auth %}
+{% if valid %}
+<form method="post" class="space-y-4" novalidate>{% csrf_token %}
+  {% for error in form.non_field_errors %}{% include "store/components/alert.html" with kind="error" text=error %}{% endfor %}
+  {% include "store/components/field.html" with field=form.password1 %}
+  {% include "store/components/field.html" with field=form.password2 %}
+  {% include "store/components/field.html" with field=form.accept_terms %}
+  <p class="text-sm"><a href="{% url 'store:terms' %}" class="st-link" target="_blank" rel="noopener">Ver los términos</a> · <a href="{% url 'store:privacy' %}" class="st-link" target="_blank" rel="noopener">Ver la política de privacidad</a></p>
+  {% include "store/components/button.html" with label="Crear mi contraseña y entrar" block=True %}
+</form>
+{% else %}
+{% include "store/components/alert.html" with kind="warning" text="Este enlace ya se usó o venció. Podés pedir uno nuevo con tu CUIT y tu email." %}
+<div class="mt-4">{% url "store:invitation_request" as request_url %}{% include "store/components/button.html" with label="Pedir un enlace nuevo" href=request_url block=True %}</div>
+<p class="mt-4 text-center text-sm"><a href="{% url 'store:login' %}" class="st-link">Ya tengo mi contraseña: ingresar</a></p>
+{% endif %}
+{% endblock %}

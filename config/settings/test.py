@@ -19,6 +19,8 @@ STORAGES = {
     "private": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
 }
 STORE_EMAILS_ENABLED = False
+STORE_INVITATIONS_ENABLED = False
+STORE_EMAIL_DRY_RUN = False
 MIDDLEWARE = [m for m in MIDDLEWARE if "whitenoise" not in m]  # noqa: F405
 TN_APP_ID = "1234"
 TN_CLIENT_SECRET = "secreto-de-test"

@@ -1,0 +1,8 @@
+{% extends "store/_auth_base.html" %}
+{% block title %}Revisá tu email{% endblock %}
+{% block heading %}Revisá tu email{% endblock %}
+{% block auth %}
+<p>Si los datos coinciden con una invitación pendiente, te mandamos un enlace nuevo. Puede tardar unos minutos y a veces cae en correo no deseado.</p>
+<p class="mt-3">Si no te llega, escribinos y lo resolvemos.</p>
+<div class="mt-5">{% url "store:login" as login_url %}{% include "store/components/button.html" with label="Volver al ingreso" href=login_url variant="secondary" block=True %}</div>
+{% endblock %}

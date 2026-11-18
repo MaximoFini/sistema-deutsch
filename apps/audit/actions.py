@@ -58,6 +58,13 @@ ACTIONS: dict[str, str] = {
     "wholesale.acting_finished": "Pedido en nombre de un cliente: terminó",
     "client.change_requested": "Cliente mayorista pidió cambiar sus datos",
     "wholesale.order_repeated": "Cliente mayorista repitió un pedido",
+    "client.imported": "Cuenta mayorista preparada desde un cliente cargado",
+    "invitation.prepared": "Invitaciones mayoristas preparadas",
+    "invitation.sent": "Invitaciones mayoristas encoladas para enviar",
+    "invitation.dry_run": "Ensayo de envío de invitaciones (no se mandó nada)",
+    "invitation.accepted": "Cliente mayorista creó su contraseña por invitación",
+    "invitation.requested": "Cliente mayorista pidió otra invitación",
+    "invitation.email_corrected": "Email de un cliente mayorista corregido antes de invitar",
 }
 
 

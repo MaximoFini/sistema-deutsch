@@ -1,0 +1,16 @@
+{% extends "store/_auth_base.html" %}
+{% block title %}Pedir otra invitación{% endblock %}
+{% block heading %}Pedir otra invitación{% endblock %}
+{% block intro %}<p class="text-brand-gray-600">Si tu enlace venció o se perdió, escribí tu CUIT y el email con el que te invitamos y te mandamos uno nuevo.</p>{% endblock %}
+{% block auth %}
+<form method="post" class="space-y-4" novalidate>{% csrf_token %}
+  {% for error in form.non_field_errors %}{% include "store/components/alert.html" with kind="error" text=error %}{% endfor %}
+  {% include "store/components/field.html" with field=form.cuit %}
+  {% include "store/components/field.html" with field=form.email %}
+  <div aria-hidden="true" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;">
+    <label for="{{ form.website.id_for_label }}">No completes este campo</label>{{ form.website }}
+  </div>
+  {% include "store/components/button.html" with label="Pedir un enlace nuevo" block=True %}
+</form>
+<p class="mt-4 text-center text-sm"><a href="{% url 'store:login' %}" class="st-link">Volver al ingreso</a></p>
+{% endblock %}
