@@ -19,6 +19,7 @@ from openpyxl import Workbook, load_workbook
 
 from apps.catalog import contabilium_import
 from apps.catalog.contabilium_import import parse_number
+from apps.catalog.models import Product, Variant
 from apps.core.db import refresh_statistics
 from apps.customers.models import Address, Customer
 from apps.integrations.adapters.tiendanube.catalog import upsert_product
@@ -83,7 +84,28 @@ class Command(BaseCommand):
         self.stdout.write(f"Contabilium (vista previa): {json.dumps(imp.summary, ensure_ascii=False)[:500]}")
         stats = contabilium_import.apply_import(imp, user=user)
         self.stdout.write(f"Contabilium (aplicado): {stats}")
+        self._activar_catalogo_de_contabilium(xlsx)
         refresh_statistics()
+
+    def _activar_catalogo_de_contabilium(self, xlsx: Path) -> None:
+        """Lo que Contabilium tiene "Activo" está activo en el sistema.
+
+        El snapshot de Tiendanube trae todo oculto porque la tienda todavía no abrió: eso es un dato del canal,
+        no del catálogo, y dejaba la tienda mayorista sin productos.
+        """
+        rows = list(
+            load_workbook(xlsx, read_only=True, data_only=True).worksheets[0].iter_rows(values_only=True)
+        )
+        head = list(rows[0])
+        sku_col, state_col = head.index("SKU"), head.index("Estado")
+        skus = {
+            str(r[sku_col]).strip() for r in rows[1:] if r[sku_col] is not None and r[state_col] == "Activo"
+        }
+        variants = Variant.objects.filter(sku__in=skus)
+        product_ids = set(variants.values_list("product_id", flat=True))
+        n_variants = variants.update(is_active=True)
+        n_products = Product.objects.filter(pk__in=product_ids).update(is_active=True)
+        self.stdout.write(f"Activos según Contabilium: {n_products} productos, {n_variants} variantes.")
 
     def _stock_actual_de_contabilium(self, products: list[dict], xlsx: Path) -> None:
         """El snapshot de Tiendanube tiene días de antigüedad; el stock disponible vigente es el de Contabilium."""
