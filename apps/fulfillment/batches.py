@@ -105,6 +105,8 @@ def _next_number() -> int:
 
 
 def _exclusion_reason(doc: SalesDocument, active_batch: dict[int, int], full_ids: set[int]) -> str | None:
+    if doc.is_historical:
+        return "es un pedido histórico (solo lectura)"
     if doc.doc_type != SalesDocument.DocType.ORDER or doc.channel.code not in CHANNELS:
         return "no es un pedido que se prepare desde acá"
     if doc.pk in full_ids:

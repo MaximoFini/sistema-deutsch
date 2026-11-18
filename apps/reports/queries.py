@@ -72,20 +72,25 @@ def _dec(value) -> Decimal:
     return Decimal(value or 0).quantize(Decimal("0.01"))
 
 
-def _doc_q(f: Filters, prefix: str = "", start=None, cancelled: bool = False) -> Q:
-    """Pedidos del período (por fecha de alta) y canal. `prefix` = camino al documento."""
-    q = Q(
-        **{
-            f"{prefix}doc_type": ORDER,
-            f"{prefix}issued_at__gte": start or f.start_dt,
-            f"{prefix}issued_at__lt": f.end_dt,
-        }
-    )
-    if f.channel:
-        q &= Q(**{f"{prefix}channel__code": f.channel})
-    if not cancelled:
-        q &= ~Q(**{f"{prefix}status": states.CANCELLED})
-    return q
+def _doc_q(
+    f: Filters, prefix: str = "", start=None, cancelled: bool = False, also: Filters | None = None
+) -> Q:
+    """Pedidos del período (por fecha de alta) y canal. `prefix` = camino al documento.
+
+    `also`: otro período que se trae junto (p. ej. el mismo período del año anterior), en la misma consulta.
+    Los pedidos históricos cuentan acá igual que los demás: los reportes los incluyen (R1.3).
+    """
+
+    def window(begin, end) -> Q:
+        q = Q(**{f"{prefix}doc_type": ORDER, f"{prefix}issued_at__gte": begin, f"{prefix}issued_at__lt": end})
+        if f.channel:
+            q &= Q(**{f"{prefix}channel__code": f.channel})
+        if not cancelled:
+            q &= ~Q(**{f"{prefix}status": states.CANCELLED})
+        return q
+
+    q = window(start or f.start_dt, f.end_dt)
+    return q | window(also.start_dt, also.end_dt) if also else q
 
 
 def sales(f: Filters):
@@ -103,36 +108,52 @@ def _change(current, previous) -> float | None:
 
 
 def kpis(f: Filters) -> dict:
-    """Los 7 indicadores del resumen, con el período anterior de igual duración (4 consultas)."""
+    """Los 7 indicadores del resumen, con el período anterior de igual duración y el mismo período del año
+    anterior (R1.6). Siguen siendo 4 consultas: los tres períodos se traen juntos y se separan con `filter=`."""
     prev = f.previous()
-    cur = Q(issued_at__gte=f.start_dt)
+    year = f.previous_year()
+
+    def in_period(p: Filters, prefix: str = "") -> Q:
+        return Q(**{f"{prefix}issued_at__gte": p.start_dt, f"{prefix}issued_at__lt": p.end_dt})
+
+    cur, before, ago = in_period(f), in_period(prev), in_period(year)
     alive = ~Q(status=states.CANCELLED)
-    docs = SalesDocument.objects.filter(_doc_q(f, start=prev.start_dt, cancelled=True)).aggregate(
+    docs = SalesDocument.objects.filter(_doc_q(f, start=prev.start_dt, cancelled=True, also=year)).aggregate(
         gross=Sum("total", filter=cur & alive),
-        gross_prev=Sum("total", filter=~cur & alive),
+        gross_prev=Sum("total", filter=before & alive),
+        gross_year=Sum("total", filter=ago & alive),
         orders=Count("id", filter=cur & alive),
-        orders_prev=Count("id", filter=~cur & alive),
+        orders_prev=Count("id", filter=before & alive),
+        orders_year=Count("id", filter=ago & alive),
         cancelled=Count("id", filter=cur & ~alive),
-        cancelled_prev=Count("id", filter=~cur & ~alive),
+        cancelled_prev=Count("id", filter=before & ~alive),
+        cancelled_year=Count("id", filter=ago & ~alive),
         net_pending=Count("id", filter=cur & alive & Q(net_pending=True, channel__code="mercadolibre")),
     )
-    lcur = Q(document__issued_at__gte=f.start_dt)
-    lines = SalesLine.objects.filter(_doc_q(f, "document__", start=prev.start_dt)).aggregate(
+    lcur, lbefore, lago = (in_period(p, "document__") for p in (f, prev, year))
+    lines = SalesLine.objects.filter(_doc_q(f, "document__", start=prev.start_dt, also=year)).aggregate(
         units=Sum("quantity", filter=lcur),
-        units_prev=Sum("quantity", filter=~lcur),
+        units_prev=Sum("quantity", filter=lbefore),
+        units_year=Sum("quantity", filter=lago),
         fees=Sum("channel_fee", filter=lcur),
-        fees_prev=Sum("channel_fee", filter=~lcur),
+        fees_prev=Sum("channel_fee", filter=lbefore),
+        fees_year=Sum("channel_fee", filter=lago),
     )
-    ships = Shipment.objects.filter(_doc_q(f, "document__", start=prev.start_dt)).aggregate(
+    ships = Shipment.objects.filter(_doc_q(f, "document__", start=prev.start_dt, also=year)).aggregate(
         cost=Sum("seller_cost", filter=lcur),
-        cost_prev=Sum("seller_cost", filter=~lcur),
+        cost_prev=Sum("seller_cost", filter=lbefore),
+        cost_year=Sum("seller_cost", filter=lago),
     )
-    returns_qs = ReturnInfo.objects.filter(received_at__gte=prev.start_dt, received_at__lt=f.end_dt)
+    returns_qs = ReturnInfo.objects.filter(
+        Q(received_at__gte=prev.start_dt, received_at__lt=f.end_dt)
+        | Q(received_at__gte=year.start_dt, received_at__lt=year.end_dt)
+    )
     if f.channel:
         returns_qs = returns_qs.filter(document__channel__code=f.channel)
     rets = returns_qs.aggregate(
-        returns=Count("id", filter=Q(received_at__gte=f.start_dt)),
-        returns_prev=Count("id", filter=Q(received_at__lt=f.start_dt)),
+        returns=Count("id", filter=Q(received_at__gte=f.start_dt, received_at__lt=f.end_dt)),
+        returns_prev=Count("id", filter=Q(received_at__gte=prev.start_dt, received_at__lt=f.start_dt)),
+        returns_year=Count("id", filter=Q(received_at__gte=year.start_dt, received_at__lt=year.end_dt)),
     )
 
     def net(sfx=""):
@@ -143,27 +164,31 @@ def kpis(f: Filters) -> dict:
         return (_dec(docs[f"gross{sfx}"]) / n).quantize(Decimal("0.01")) if n else ZERO
 
     rows = [
-        ("gross", "Ventas en bruto", _dec(docs["gross"]), _dec(docs["gross_prev"]), "money", True),
-        ("net", "Ventas en neto", net(), net("_prev"), "money", True),
-        ("orders", "Pedidos", docs["orders"], docs["orders_prev"], "int", True),
-        ("units", "Unidades", Decimal(lines["units"] or 0), Decimal(lines["units_prev"] or 0), "int", True),
-        ("ticket", "Ticket promedio", ticket(), ticket("_prev"), "money", True),
-        ("cancelled", "Pedidos cancelados", docs["cancelled"], docs["cancelled_prev"], "int", False),
-        ("returns", "Devoluciones recibidas", rets["returns"], rets["returns_prev"], "int", False),
-    ]
+        ("gross", "Ventas en bruto", _dec(docs["gross"]), _dec(docs["gross_prev"]), _dec(docs["gross_year"]), "money", True),
+        ("net", "Ventas en neto", net(), net("_prev"), net("_year"), "money", True),
+        ("orders", "Pedidos", docs["orders"], docs["orders_prev"], docs["orders_year"], "int", True),
+        ("units", "Unidades", Decimal(lines["units"] or 0), Decimal(lines["units_prev"] or 0), Decimal(lines["units_year"] or 0), "int", True),
+        ("ticket", "Ticket promedio", ticket(), ticket("_prev"), ticket("_year"), "money", True),
+        ("cancelled", "Pedidos cancelados", docs["cancelled"], docs["cancelled_prev"], docs["cancelled_year"], "int", False),
+        ("returns", "Devoluciones recibidas", rets["returns"], rets["returns_prev"], rets["returns_year"], "int", False),
+    ]  # fmt: skip
     items = []
-    for key, label, value, previous, kind, good_up in rows:
+    for key, label, value, previous, last_year, kind, good_up in rows:
         change = _change(value, previous)
+        year_change = _change(value, last_year)
         items.append(
             {
                 "key": key,
                 "label": label,
                 "value": value,
                 "previous": previous,
+                "year_ago": last_year,
                 "kind": kind,
                 "change": change,
+                "year_change": year_change,
                 # ▲ en verde si subir es bueno (ventas), en rojo si es malo (cancelados, devoluciones).
                 "good": None if not change else (change > 0) == good_up,
+                "year_good": None if not year_change else (year_change > 0) == good_up,
             }
         )
     return {
@@ -171,6 +196,7 @@ def kpis(f: Filters) -> dict:
         "by_key": {i["key"]: i for i in items},
         "net_pending": docs["net_pending"],
         "previous": prev,
+        "year": year,
     }
 
 
@@ -680,8 +706,9 @@ def response_times(f: Filters) -> dict:
 
 
 def _dispatched(f: Filters):
+    # Los históricos (otra operación, sin horarios propios) no miden la demora de preparación y despacho.
     qs = SalesDocument.objects.filter(
-        doc_type=ORDER, dispatched_at__gte=f.start_dt, dispatched_at__lt=f.end_dt
+        doc_type=ORDER, is_historical=False, dispatched_at__gte=f.start_dt, dispatched_at__lt=f.end_dt
     ).exclude(status=states.CANCELLED)
     if f.channel:
         qs = qs.filter(channel__code=f.channel)
@@ -729,6 +756,7 @@ def flex_on_time(f: Filters, now=None) -> dict:
     qs = Shipment.objects.filter(
         method__in=[Shipment.Method.ME_FLEX, Shipment.Method.ME_COLECTA],
         document__doc_type=ORDER,
+        document__is_historical=False,  # un histórico sin despachar no es una demora
         dispatch_deadline__gte=f.start_dt,
         dispatch_deadline__lt=f.end_dt,
     ).exclude(document__status=states.CANCELLED)
@@ -786,7 +814,7 @@ def manual_pending(today: date | None = None) -> dict:
     today = today or timezone.localdate()
     docs = (
         payments.annotate_paid(
-            SalesDocument.objects.filter(channel__code="manual", doc_type=ORDER).exclude(
+            SalesDocument.objects.filter(channel__code="manual", doc_type=ORDER, is_historical=False).exclude(
                 status=states.CANCELLED
             )
         )
@@ -893,7 +921,9 @@ def wholesale(f: Filters, today: date | None = None) -> dict:
         return out
 
     orders = WholesaleOrder.objects.filter(document__doc_type=ORDER)
-    awaiting = rows(orders.filter(document__status=states.AWAITING_PAYMENT), "Esperando pago")
+    # Las listas de pendientes son operativas: no incluyen históricos (el vendido del período sí los cuenta).
+    pending_orders = orders.filter(document__is_historical=False)
+    awaiting = rows(pending_orders.filter(document__status=states.AWAITING_PAYMENT), "Esperando pago")
     # Vencidos: transferencias canceladas por el sistema al vencer el plazo, dentro del período.
     expired = rows(
         orders.filter(
@@ -904,7 +934,7 @@ def wholesale(f: Filters, today: date | None = None) -> dict:
         "Vencido",
     )
     not_invoiced = rows(
-        orders.filter(document__invoiced_in_contabilium=False).exclude(
+        pending_orders.filter(document__invoiced_in_contabilium=False).exclude(
             document__status__in=[states.CANCELLED, states.AWAITING_PAYMENT]
         ),
         "Sin facturar",
@@ -923,7 +953,7 @@ def wholesale(f: Filters, today: date | None = None) -> dict:
     )
     reserved_rows = []
     for o in (
-        orders.filter(reservation_released_at__isnull=True, document__invoiced_in_contabilium=False)
+        pending_orders.filter(reservation_released_at__isnull=True, document__invoiced_in_contabilium=False)
         .exclude(document__status=states.CANCELLED)
         .annotate(units=Coalesce(Subquery(reserved_units), Value(Decimal(0)), output_field=MONEY))
         .filter(units__gt=0)

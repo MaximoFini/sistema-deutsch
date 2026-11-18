@@ -26,6 +26,7 @@ def check_flex_due(now=None) -> int:
         dispatch_deadline__lte=limit,
         document__status__in=NOT_DISPATCHED,
         document__doc_type=SalesDocument.DocType.ORDER,
+        document__is_historical=False,  # los históricos no generan alertas
     ).select_related("document")
     for shipment in shipments:
         doc = shipment.document
@@ -59,9 +60,9 @@ def check_manual_pending(now=None) -> int:
     # Solo los que todavía deben cobro o factura (no toda la historia de pedidos).
     docs = (
         payments.annotate_paid(
-            SalesDocument.objects.filter(manual | wholesale, doc_type=SalesDocument.DocType.ORDER).exclude(
-                status=states.CANCELLED
-            )
+            SalesDocument.objects.filter(
+                manual | wholesale, doc_type=SalesDocument.DocType.ORDER, is_historical=False
+            ).exclude(status=states.CANCELLED)
         )
         .filter(~payments.paid_q() | Q(invoiced_in_contabilium=False))
         .select_related("channel", "wholesale")

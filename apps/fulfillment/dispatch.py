@@ -84,7 +84,7 @@ def advance(
     if not ids:
         raise DispatchError("Marcá al menos un pedido.")
     docs = (
-        SalesDocument.objects.filter(pk__in=ids, doc_type=SalesDocument.DocType.ORDER)
+        SalesDocument.objects.filter(pk__in=ids, doc_type=SalesDocument.DocType.ORDER, is_historical=False)
         .select_related("channel", "customer")
         .prefetch_related(Prefetch("shipments", queryset=Shipment.objects.order_by("id")))
         .order_by("pk")

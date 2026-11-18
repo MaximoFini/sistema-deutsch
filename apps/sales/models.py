@@ -48,6 +48,9 @@ class SalesDocument(TimeStampedModel):
     dispatched_at = models.DateTimeField("despachado", null=True, blank=True, db_index=True)
     # Venta de ML a la que le falta la comisión o el costo de envío del vendedor (no se puede calcular el neto).
     net_pending = models.BooleanField("neto pendiente", default=False)
+    # US-1 (lanzamiento): pedido viejo importado (ML o TiendaQuick), solo lectura. No aparece ni afecta nada
+    # operativo (preparación, alertas, stock, emails, canales) pero sí cuenta en los reportes.
+    is_historical = models.BooleanField("histórico", default=False, db_index=True)
 
     class Meta:
         verbose_name = "documento de venta"

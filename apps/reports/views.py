@@ -127,10 +127,12 @@ class SummaryView(ReportView):
                 i["value"] if i["kind"] == "money" else _num(i["value"]),
                 i["previous"] if i["kind"] == "money" else _num(i["previous"]),
                 i["change"],
+                i["year_ago"] if i["kind"] == "money" else _num(i["year_ago"]),
+                i["year_change"],
             ]
             for i in k["items"]
         ]
-        kpi_rows.append(["Ventas de ML con neto pendiente", k["net_pending"], None, None])
+        kpi_rows.append(["Ventas de ML con neto pendiente", k["net_pending"], None, None, None, None])
         names = [s["name"] for s in by_day["series"]]
         day_rows = [
             [
@@ -143,9 +145,16 @@ class SummaryView(ReportView):
         return [
             Sheet(
                 "Indicadores",
-                ["Indicador", "Período", f"Período anterior ({prev.label})", "Variación %"],
+                [
+                    "Indicador",
+                    "Período",
+                    f"Período anterior ({prev.label})",
+                    "Variación %",
+                    f"Mismo período del año anterior ({k['year'].label})",
+                    "Variación % vs. año anterior",
+                ],
                 kpi_rows,
-                money_columns={1, 2},
+                money_columns={1, 2, 4},
                 note=self.note() + " Tiendanube y manuales: sin comisiones del canal (neto = bruto).",
             ),
             Sheet(

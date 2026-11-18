@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 def on_status_changed(sender, document, old, new, system=False, **kwargs):
     """Llega después del commit (ver `apps.sales.signals`). Nunca rompe la pantalla que cambió el estado."""
-    if document.channel.code != "mayorista":
+    if document.channel.code != "mayorista" or document.is_historical:
         return
     try:
         doc = SalesDocument.objects.select_related("channel", "customer").get(pk=document.pk)
@@ -80,6 +80,6 @@ def _pickup_email(doc: SalesDocument) -> None:
 
 def on_invoice_changed(sender, document, invoiced, user=None, **kwargs):
     """Dentro de la transacción de `manual.update_invoice`."""
-    if invoiced and document.channel.code == "mayorista":
+    if invoiced and document.channel.code == "mayorista" and not document.is_historical:
         with transaction.atomic():
             payments.on_invoiced(document, user=user)

@@ -273,7 +273,9 @@ class OrderLabelView(PanelPermissionRequiredMixin, View):
     http_method_names = ["post"]
 
     def post(self, request, pk):
-        doc = get_object_or_404(SalesDocument.objects.select_related("channel"), pk=pk, doc_type=ORDER)
+        doc = get_object_or_404(
+            SalesDocument.objects.select_related("channel"), pk=pk, doc_type=ORDER, is_historical=False
+        )
         back = _safe_next(request.POST.get("next")) or reverse("sales:detail", args=[pk])
         shipment = labels.label_shipment(doc)
         if labels.label_kind(shipment) != labels.KIND_ML:
@@ -300,7 +302,10 @@ class CarrierLabelView(PanelPermissionRequiredMixin, View):
 
     def _get(self, pk):
         doc = get_object_or_404(
-            SalesDocument.objects.select_related("channel", "customer"), pk=pk, doc_type=ORDER
+            SalesDocument.objects.select_related("channel", "customer"),
+            pk=pk,
+            doc_type=ORDER,
+            is_historical=False,
         )
         shipment = labels.label_shipment(doc)
         return doc, shipment
@@ -444,7 +449,7 @@ class DispatchView(PanelPermissionRequiredMixin, View):
             messages.error(request, "Marcá al menos un pedido para imprimir sus etiquetas.")
             return redirect(back)
         docs = (
-            SalesDocument.objects.filter(pk__in=ids, doc_type=ORDER)
+            SalesDocument.objects.filter(pk__in=ids, doc_type=ORDER, is_historical=False)
             .select_related("channel")
             .prefetch_related("shipments")
             .order_by("pk")

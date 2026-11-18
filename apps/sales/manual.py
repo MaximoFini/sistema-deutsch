@@ -192,12 +192,14 @@ def _set_invoice(doc: SalesDocument, invoiced: bool, number: str) -> None:
 
 def is_editable(doc) -> bool:
     """Cobro y facturación a mano: pedidos manuales y mayoristas."""
-    return doc.channel.code in EDITABLE_CHANNELS
+    return doc.channel.code in EDITABLE_CHANNELS and not doc.is_historical
 
 
 def _require_manual(doc, user):
     if not user.has_perm("sales.add_manual_order"):
         raise PermissionDenied
+    if doc.is_historical:
+        raise ManualOrderError("Pedido histórico importado de TiendaQuick: solo lectura, no se edita.")
     if not is_editable(doc):
         raise ManualOrderError("Solo se edita cobro y facturación de pedidos manuales o mayoristas.")
 

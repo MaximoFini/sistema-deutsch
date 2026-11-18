@@ -47,7 +47,7 @@ def _new_return(order: SalesDocument, source: str, claim=None, lines=None) -> Sa
 @transaction.atomic
 def ensure_expected_for_claim(claim) -> SalesDocument | None:
     """Reclamo de ML con devolución → devolución esperada (una sola por reclamo)."""
-    if claim.document_id is None or not claim.return_status:
+    if claim.document_id is None or not claim.return_status or claim.document.is_historical:
         return None
     existing = ReturnInfo.objects.filter(claim=claim).select_related("document").first()
     if existing:
@@ -78,6 +78,8 @@ def get_or_create_expected(order: SalesDocument, *, user, request=None) -> tuple
 
 @transaction.atomic
 def create_expected(order: SalesDocument, *, user, lines=None, request=None) -> SalesDocument:
+    if order.is_historical:
+        raise ReturnError("Pedido histórico importado de TiendaQuick: solo lectura, no admite devoluciones.")
     doc = _new_return(order, ReturnInfo.Source.MANUAL, lines=lines)
     audit.record(
         user, "return.expected_created", doc, request=request, after={"pedido": order.channel_reference}

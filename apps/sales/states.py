@@ -73,6 +73,9 @@ class TransitionNotAllowed(Exception):
     pass
 
 
+HISTORICAL_READ_ONLY = "Pedido histórico importado de TiendaQuick: solo lectura."
+
+
 def label(status: str) -> str:
     return LABELS.get(status, status)
 
@@ -92,7 +95,7 @@ def cancellable_here(doc: SalesDocument) -> bool:
 
 def allowed_transitions(doc: SalesDocument, user=None) -> list[str]:
     """Destinos que la UI ofrece a este usuario (solo pedidos)."""
-    if doc.doc_type != SalesDocument.DocType.ORDER:
+    if doc.doc_type != SalesDocument.DocType.ORDER or doc.is_historical:
         return []
     if user is not None and not user.has_perm("sales.change_order_status"):
         return []
@@ -132,6 +135,10 @@ def change_status(
         raise TransitionNotAllowed(f"Estado desconocido: {to}")
     with transaction.atomic():
         doc = SalesDocument.objects.select_for_update().select_related("channel").get(pk=doc.pk)
+        if doc.is_historical:
+            raise TransitionNotAllowed(
+                f"{HISTORICAL_READ_ONLY} No se puede cambiar el estado de un pedido histórico."
+            )
         current = doc.status
         if current == to:
             return False
@@ -217,6 +224,8 @@ def _stamp_moments(doc: SalesDocument, to: str, system: bool) -> None:
 
 def mark_ready_on_create(doc: SalesDocument) -> None:
     """Un pedido que entra ya pagado (Nuevo) está listo para preparar desde que se creó."""
+    if doc.is_historical:
+        return
     if doc.ready_at is None and doc.status != AWAITING_PAYMENT:
         doc.ready_at = doc.issued_at
         SalesDocument.objects.filter(pk=doc.pk, ready_at__isnull=True).update(ready_at=doc.issued_at)
@@ -234,6 +243,8 @@ def _tn_effect(doc, action, user, tracking_code, tracking_url):
 
 
 def emit_new_order(doc: SalesDocument) -> None:
+    if doc.is_historical:
+        return
     ref = doc.channel_reference or str(doc)
     doc_id = doc.pk
     transaction.on_commit(

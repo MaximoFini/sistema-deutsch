@@ -8,10 +8,13 @@
   <span class="rounded px-2 py-0.5 text-sm font-medium {{ doc.status|status_classes }}">{{ status_label }}</span>
   <span class="text-sm text-stone-500">{{ doc.channel.name }} · {{ doc.issued_at|date:"d/m/Y H:i" }} · interno #{{ doc.number }}</span>
 </div>
+{% if is_historical %}<div class="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" role="note"><strong>Pedido histórico importado de TiendaQuick: solo lectura.</strong> No se prepara, no genera alertas ni mueve stock; sí cuenta en los reportes.</div>{% endif %}
 {% if doc.channel_status %}<p class="text-xs text-stone-500">Estado en el canal: <span class="font-mono">{{ doc.channel_status }}</span></p>{% endif %}
 
+{% if not is_historical %}
 {% order_fulfillment doc shipments %}
 {% wholesale_order doc %}
+{% endif %}
 
 {% if transitions %}
 <section class="mt-4 rounded-lg border border-stone-200 bg-white p-3">
@@ -99,7 +102,7 @@
     {% for c in claims %}<p>{% if perms.conversations.view_claim %}<a href="{% url 'ml:claim_detail' c.pk %}" class="underline">Reclamo {{ c.external_id }}</a>{% else %}Reclamo {{ c.external_id }}{% endif %} · {{ c.status|claim_status }} · {{ c.reason|claim_reason }}{% if c.due_date %} · responder antes de {{ c.due_date|date:"d/m H:i" }}{% endif %}{% if c.return_status %} · devolución: {{ c.return_status }}{% endif %}</p>{% endfor %}
     {% for r in returns %}<p>Devolución: {% if r.return_info.received_at %}recibida {{ r.return_info.received_at|date:"d/m" }}{% if r.return_info.adjusted_in_contabilium %} · ajustada{% endif %}{% else %}<a class="underline" href="{% url 'sales:return_receive' r.pk %}">registrar recepción</a>{% endif %}</p>{% endfor %}
     {% if not claims and not returns %}<p class="text-stone-500">Sin reclamos ni devoluciones.</p>{% endif %}
-    {% if perms.sales.receive_return %}
+    {% if perms.sales.receive_return and not is_historical %}
     <form method="post" action="{% url 'sales:return_create' doc.pk %}" class="mt-2 flex gap-3">{% csrf_token %}
       <button name="receive_now" value="0" class="underline">Cargar devolución esperada</button>
       <button name="receive_now" value="1" class="underline">Llegó una devolución</button>

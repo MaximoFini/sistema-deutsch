@@ -50,12 +50,13 @@ def open_shortages(doc: SalesDocument):
 
 
 def can_report(doc: SalesDocument) -> bool:
-    return doc.channel.code == "mayorista" and doc.status == states.PREPARING
+    return doc.channel.code == "mayorista" and not doc.is_historical and doc.status == states.PREPARING
 
 
 def can_resolve(doc: SalesDocument) -> bool:
     return (
         doc.channel.code == "mayorista"
+        and not doc.is_historical
         and doc.status == states.AWAITING_CUSTOMER
         and open_shortages(doc).exists()
     )

@@ -279,7 +279,13 @@ def reserved_by_document(doc: SalesDocument) -> dict[int, Decimal]:
 def change_line_reservation(doc, variant, delta, *, user=None, note="") -> None:
     """Toma (+) o libera (−) reserva de una línea, salvo que la reserva ya se haya liberado."""
     order = order_of(doc)
-    if order is None or order.reservation_released_at is not None or not delta or variant is None:
+    if (
+        doc.is_historical
+        or order is None
+        or order.reservation_released_at is not None
+        or not delta
+        or variant is None
+    ):
         return
     inventory.change_reserved(
         variant, inventory.default_warehouse(), Decimal(delta), reference=doc, user=user, note=note
@@ -350,6 +356,7 @@ def _awaiting_transfers():
     return WholesaleOrder.objects.filter(
         payment_method=WholesaleOrder.PaymentMethod.TRANSFER,
         document__status=states.AWAITING_PAYMENT,
+        document__is_historical=False,  # los históricos no vencen ni mandan recordatorios
         expires_at__isnull=False,
     ).annotate(has_receipt=Exists(PaymentReceipt.objects.filter(document=OuterRef("document"))))
 

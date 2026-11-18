@@ -57,6 +57,17 @@ class Filters:
             start=end - timedelta(days=self.days - 1), end=end, channel=self.channel, preset="rango"
         )
 
+    def previous_year(self) -> "Filters":
+        """El mismo período, un año antes (R1.6). El 29/02 pasa al 28/02 del año anterior."""
+
+        def back(d: date) -> date:
+            try:
+                return d.replace(year=d.year - 1)
+            except ValueError:
+                return d.replace(year=d.year - 1, day=28)
+
+        return Filters(start=back(self.start), end=back(self.end), channel=self.channel, preset="rango")
+
     @property
     def channel_label(self) -> str:
         return CHANNELS.get(self.channel, self.channel)

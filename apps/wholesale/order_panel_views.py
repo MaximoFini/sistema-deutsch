@@ -29,6 +29,7 @@ def wholesale_doc(pk) -> SalesDocument:
         pk=pk,
         doc_type=ORDER,
         channel__code="mayorista",
+        is_historical=False,
     )
 
 

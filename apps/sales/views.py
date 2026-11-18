@@ -28,16 +28,20 @@ def _date(value: str):
         return None
 
 
-def orders_queryset():
+def orders_queryset(include_historical: bool = False):
+    """Pedidos del centro de pedidos y de las colas. Los históricos (US-1) quedan afuera salvo que se pidan."""
     deadline = (
         Shipment.objects.filter(document=OuterRef("pk"), dispatch_deadline__isnull=False)
         .order_by("dispatch_deadline")
         .values("dispatch_deadline")[:1]
     )
     method = Shipment.objects.filter(document=OuterRef("pk")).order_by("id").values("method")[:1]
-    return payments.annotate_paid(
-        SalesDocument.objects.filter(doc_type=ORDER).select_related("channel", "customer")
-    ).annotate(deadline=Subquery(deadline), ship_method=Subquery(method))
+    base = SalesDocument.objects.filter(doc_type=ORDER)
+    if not include_historical:
+        base = base.filter(is_historical=False)
+    return payments.annotate_paid(base.select_related("channel", "customer")).annotate(
+        deadline=Subquery(deadline), ship_method=Subquery(method)
+    )
 
 
 def search_orders(qs, q: str):
@@ -60,8 +64,9 @@ class OrderListView(PanelPermissionRequiredMixin, ListView):
     context_object_name = "orders"
 
     def get_queryset(self):
-        qs = orders_queryset()
         p = self.request.GET
+        # Los pedidos históricos importados no se mezclan con la operación: solo con el filtro explícito.
+        qs = orders_queryset(include_historical=p.get("historicos") == "1")
         if p.get("canal"):
             qs = qs.filter(channel__code=p["canal"])
         estados = [e for e in p.getlist("estado") if e]
@@ -90,6 +95,7 @@ class OrderListView(PanelPermissionRequiredMixin, ListView):
         ctx.update(
             querystring=query.urlencode(),
             f=self.request.GET,
+            include_historical=self.request.GET.get("historicos") == "1",
             estados_sel=self.request.GET.getlist("estado"),
             channels=Channel.objects.filter(code__in=["tiendanube", "mercadolibre", "manual", "mayorista"]),
             status_choices=list(states.LABELS.items()),
@@ -105,7 +111,7 @@ class OrderDetailView(PanelPermissionRequiredMixin, DetailView):
     context_object_name = "doc"
 
     def get_queryset(self):
-        return orders_queryset()
+        return orders_queryset(include_historical=True)  # la ficha del histórico se ve (solo lectura)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -134,6 +140,7 @@ class OrderDetailView(PanelPermissionRequiredMixin, DetailView):
             status_label=states.label(doc.status),
             family=states.FAMILY.get(doc.status, "flow"),
             is_tn=doc.channel.code == "tiendanube",
+            is_historical=doc.is_historical,
             is_manual=manual.is_editable(doc),  # cobro y facturación a mano: manuales y mayoristas
             can_edit_manual=manual.is_editable(doc) and user.has_perm("sales.add_manual_order"),
             can_edit_payment=manual.is_editable(doc)
@@ -393,7 +400,10 @@ class ReturnListView(PanelPermissionRequiredMixin, ListView):
         ctx["pedido_q"] = q
         ctx["order_results"] = (
             search_orders(
-                SalesDocument.objects.filter(doc_type=ORDER).select_related("channel", "customer"), q
+                SalesDocument.objects.filter(doc_type=ORDER, is_historical=False).select_related(
+                    "channel", "customer"
+                ),
+                q,
             ).order_by("-issued_at")[:10]
             if len(q) >= 2
             else None
@@ -462,7 +472,11 @@ class ReturnCreateExpectedView(PanelPermissionRequiredMixin, View):
 
     def post(self, request, pk):
         order = get_object_or_404(SalesDocument, pk=pk, doc_type=ORDER)
-        doc, created = returns.get_or_create_expected(order, user=request.user, request=request)
+        try:
+            doc, created = returns.get_or_create_expected(order, user=request.user, request=request)
+        except returns.ReturnError as exc:
+            messages.error(request, str(exc))
+            return redirect("sales:detail", pk=pk)
         if request.POST.get("receive_now") == "1":
             return redirect("sales:return_receive", pk=doc.pk)
         if created:

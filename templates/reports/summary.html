@@ -19,6 +19,9 @@
       <p class="mt-1 text-xs {% if k.good is True %}text-emerald-700{% elif k.good is False %}text-red-700{% else %}text-stone-500{% endif %}">
         {% if k.change is None %}Sin datos del período anterior{% elif k.change == 0 %}Igual que el período anterior{% else %}{% if k.change > 0 %}▲{% else %}▼{% endif %} {{ k.change|pct }} vs. período anterior{% endif %}
       </p>
+      <p class="mt-0.5 text-xs {% if k.year_good is True %}text-emerald-700{% elif k.year_good is False %}text-red-700{% else %}text-stone-500{% endif %}">
+        {% if k.year_change is None %}Sin datos del año anterior{% elif k.year_change == 0 %}Igual que el mismo período del año anterior{% else %}{% if k.year_change > 0 %}▲{% else %}▼{% endif %} {{ k.year_change|pct }} vs. mismo período del año anterior{% endif %}
+      </p>
     </div>
   {% endfor %}
 </div>

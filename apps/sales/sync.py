@@ -82,7 +82,7 @@ def _target(doc: SalesDocument, f: Facts, created: bool) -> tuple[str | None, st
 
 def sync_internal_status(doc: SalesDocument, *, created: bool = False) -> str | None:
     """Aplica las reglas una vez (idempotente). Devuelve el estado nuevo o None si no cambió."""
-    if doc.doc_type != SalesDocument.DocType.ORDER:
+    if doc.doc_type != SalesDocument.DocType.ORDER or doc.is_historical:
         return None
     doc = SalesDocument.objects.select_related("channel").get(pk=doc.pk)
     f = facts(doc)
@@ -114,6 +114,8 @@ def on_document_created(doc: SalesDocument, *, notify: bool = True) -> None:
 
 def after_created_complete(doc: SalesDocument) -> None:
     doc.refresh_from_db()
+    if doc.is_historical:
+        return
     if doc.status == states.NEW:
         states.emit_new_order(doc)  # dedupe por pedido: un solo aviso
     if doc.status not in states.FINAL and doc.status != states.DISPATCHED:
@@ -122,6 +124,8 @@ def after_created_complete(doc: SalesDocument) -> None:
 
 def check_stock(doc: SalesDocument) -> None:
     """Alerta si alguna línea no tiene stock disponible en el depósito (venta de más)."""
+    if doc.is_historical:
+        return
     if doc.shipments.filter(method=Shipment.Method.ME_FULL).exists():
         return
     problems = []
