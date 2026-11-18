@@ -3,7 +3,7 @@
 from django.conf import settings
 
 from apps.integrations import credentials
-from apps.integrations.http import ChannelClient
+from apps.integrations.http import ChannelClient, ChannelHTTPError
 
 CHANNEL = "tiendanube"
 API_BASE = "https://api.tiendanube.com"
@@ -52,7 +52,17 @@ class TiendanubeClient:
     def get_all(self, path: str, params: dict | None = None):
         """Itera todos los resultados de un listado, siguiendo el header Link."""
         params = {"per_page": 200, **(params or {})}
-        response = self.http.get(path, params=params)
+        try:
+            response = self.http.get(path, params=params)
+        except ChannelHTTPError as exc:
+            # Tiendanube responde 404 "Last page is 0" cuando el listado no tiene resultados: es una lista vacía.
+            if (
+                exc.response is not None
+                and exc.response.status_code == 404
+                and "Last page" in exc.response.text
+            ):
+                return
+            raise
         for _ in range(MAX_PAGES):
             yield from response.json()
             next_url = parse_next_link(response.headers.get("Link"))

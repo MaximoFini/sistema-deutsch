@@ -21,6 +21,7 @@ from apps.integrations.adapters.tiendanube import catalog, fulfillment, oauth, o
 from apps.integrations.adapters.tiendanube.adapter import signature_is_valid
 from apps.integrations.adapters.tiendanube.client import TiendanubeClient, parse_next_link
 from apps.integrations.guard import WriteBlocked
+from apps.integrations.http import ChannelHTTPError
 from apps.integrations.models import ChannelCredential, ExternalRef, InboundEvent, SyncRun
 from apps.inventory.models import StockMovement
 from apps.pricing.models import PriceListItem
@@ -667,3 +668,20 @@ def test_new_product_hidden_in_tiendanube_starts_inactive_and_reactivates_when_v
     assert not Product.objects.get().is_active
     catalog.upsert_product(tn_samples.product())
     assert Product.objects.get().is_active
+
+
+def test_empty_listing_404_last_page_is_an_empty_list(api):
+    api.get("/orders").mock(
+        return_value=httpx.Response(
+            404, json={"code": 404, "message": "Not Found", "description": "Last page is 0"}
+        )
+    )
+    client = TiendanubeClient.from_credentials(sleep=lambda s: None)
+    assert list(client.get_all("/orders")) == []
+
+
+def test_other_404_is_still_an_error(api):
+    api.get("/orders").mock(return_value=httpx.Response(404, json={"description": "Order not found"}))
+    client = TiendanubeClient.from_credentials(sleep=lambda s: None)
+    with pytest.raises(ChannelHTTPError):
+        list(client.get_all("/orders"))
