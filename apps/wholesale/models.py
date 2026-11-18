@@ -207,6 +207,7 @@ class StoreSettings(models.Model):
     transfer_expiry_days = models.PositiveSmallIntegerField("días para pagar una transferencia", default=3)
     bank_details = models.TextField("datos bancarios", blank=True)
     safety_margin_units = models.PositiveSmallIntegerField("margen de seguridad (unidades)", default=0)
+    invitations_enabled = models.BooleanField("envío de invitaciones habilitado", default=False)
     terms_text = models.TextField("términos de venta mayorista", blank=True)
     privacy_text = models.TextField("política de privacidad", blank=True)
     updated_at = models.DateTimeField("actualizado", auto_now=True)

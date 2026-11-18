@@ -629,3 +629,41 @@ def test_invitation_template_is_editable_and_seeded():
 
     template = EmailTemplate.objects.get(code="invitation")
     assert "{enlace}" in template.body and "{vence}" in template.body and "{cliente}" in template.body
+
+
+# ── Interruptor «Habilitar envío» en el panel ───────────────────────────────
+
+
+def test_switch_enables_sending_without_sending_anything(admin_client, three, admin_user):
+    invitations.prepare()
+    assert not invitations.sending_enabled()
+    response = admin_client.post(
+        reverse("wholesale_customers:invitations_switch"), {"enabled": "1"}, follow=True
+    )
+    assert response.status_code == 200
+    assert invitations.sending_enabled()
+    assert "Todavía no se mandó ninguna" in response.content.decode()
+    assert OutboundEmail.objects.count() == 0  # habilitar no manda nada
+    # Con el interruptor prendido, el botón de enviar funciona (y recién ahí se encola).
+    admin_client.post(reverse("wholesale_customers:invitations_send"), {"scope": "unsent"})
+    assert OutboundEmail.objects.filter(template_code="invitation").count() == 3
+
+
+def test_switch_can_be_turned_off_and_is_audited(admin_client, three, admin_user):
+    from apps.audit.models import AuditLog
+
+    invitations.prepare()
+    admin_client.post(reverse("wholesale_customers:invitations_switch"), {"enabled": "1"})
+    admin_client.post(reverse("wholesale_customers:invitations_switch"), {"enabled": "0"})
+    assert not invitations.sending_enabled()
+    assert AuditLog.objects.filter(action="invitation.switch").count() == 2
+    with pytest.raises(invitations.InvitationsDisabled):
+        invitations.send_invitations(invitations.accounts_for("unsent"), admin_user)
+
+
+def test_switch_requires_manage_customers(client, three, users_by_role):
+    for role in (DEPOSITO, VENTAS):
+        client.force_login(users_by_role[role])
+        response = client.post(reverse("wholesale_customers:invitations_switch"), {"enabled": "1"})
+        assert response.status_code == 403
+    assert not invitations.sending_enabled()

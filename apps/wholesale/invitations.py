@@ -33,13 +33,13 @@ from apps.customers.models import Customer
 
 from . import accounts, mail
 from .accounts import AccountError
-from .models import CustomerAccount, Invitation, OutboundEmail
+from .models import CustomerAccount, Invitation, OutboundEmail, StoreSettings
 
 logger = logging.getLogger(__name__)
 
 DISABLED_MESSAGE = (
-    "Todavía no se habilitó el envío de invitaciones. Se activa el día del lanzamiento "
-    "(interruptor STORE_INVITATIONS_ENABLED)."
+    "Todavía no se habilitó el envío de invitaciones. Un administrador lo activa con el interruptor "
+    "«Habilitar envío» de esta pantalla, el día del lanzamiento."
 )
 REQUEST_COOLDOWN = timedelta(minutes=15)  # entre un enlace y otro pedido por el propio cliente
 
@@ -61,6 +61,30 @@ CREATE, LINK, EXISTING = "create", "link", "existing"
 
 class InvitationsDisabled(AccountError):
     """El interruptor de envío está apagado."""
+
+
+def sending_enabled() -> bool:
+    """El envío está habilitado si lo prendió un administrador en el panel o si la configuración lo fuerza."""
+    return bool(settings.STORE_INVITATIONS_ENABLED or StoreSettings.load().invitations_enabled)
+
+
+def set_sending_enabled(enabled: bool, user, *, request=None) -> None:
+    """Prende o apaga el envío de invitaciones desde el panel. Queda en la auditoría."""
+    _require(user)
+    store = StoreSettings.load()
+    before = store.invitations_enabled
+    if before == enabled:
+        return
+    store.invitations_enabled = enabled
+    store.save(update_fields=["invitations_enabled", "updated_at"])
+    audit.record(
+        user,
+        "invitation.switch",
+        None,
+        before={"habilitado": before},
+        after={"habilitado": enabled},
+        request=request,
+    )
 
 
 def _require(user, perm="wholesale.manage_customers"):
@@ -387,7 +411,7 @@ def send_invitations(accounts_to_invite, user, *, request=None) -> SendResult:
     Respeta `STORE_INVITATIONS_PER_HOUR`; lo que no entra queda «sin enviar» o igual que estaba.
     """
     _require(user)
-    if not settings.STORE_INVITATIONS_ENABLED:
+    if not sending_enabled():
         raise InvitationsDisabled(DISABLED_MESSAGE)
     now = timezone.now()
     sync_states(now)
@@ -505,7 +529,7 @@ def request_new(cuit: str, email: str, *, request=None) -> bool:
     """
     digits = accounts.normalize_cuit(cuit)
     email = (email or "").strip().lower()
-    if not digits or not email or not settings.STORE_INVITATIONS_ENABLED:
+    if not digits or not email or not sending_enabled():
         return False
     account = (
         CustomerAccount.objects.select_related("user")

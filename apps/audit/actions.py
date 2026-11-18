@@ -64,6 +64,7 @@ ACTIONS: dict[str, str] = {
     "invitation.dry_run": "Ensayo de envío de invitaciones (no se mandó nada)",
     "invitation.accepted": "Cliente mayorista creó su contraseña por invitación",
     "invitation.requested": "Cliente mayorista pidió otra invitación",
+    "invitation.switch": "Envío de invitaciones mayoristas habilitado o apagado",
     "invitation.email_corrected": "Email de un cliente mayorista corregido antes de invitar",
 }
 

@@ -223,7 +223,7 @@ class InvitationTrackingView(PanelPermissionRequiredMixin, TemplateView):
             reason=reason,
             excluded=shown[:EXCLUSION_LIMIT],
             excluded_more=max(0, len(shown) - EXCLUSION_LIMIT),
-            enabled=settings.STORE_INVITATIONS_ENABLED,
+            enabled=invitations.sending_enabled(),
             dry_run=settings.STORE_EMAIL_DRY_RUN,
             disabled_message=invitations.DISABLED_MESSAGE,
             days=settings.STORE_INVITATION_DAYS,
@@ -284,6 +284,22 @@ class InvitationSendView(PanelPermissionRequiredMixin, View):
             messages.error(request, str(exc))
         else:
             _report_send(request, result)
+        return redirect("wholesale_customers:invitations")
+
+
+class InvitationSwitchView(PanelPermissionRequiredMixin, View):
+    """Interruptor «Habilitar envío»: lo prende o apaga un administrador, con confirmación en pantalla."""
+
+    permission_required = "wholesale.manage_customers"
+    http_method_names = ["post"]
+
+    def post(self, request):
+        enable = request.POST.get("enabled") == "1"
+        invitations.set_sending_enabled(enable, request.user, request=request)
+        if enable:
+            messages.success(request, "Envío de invitaciones habilitado. Todavía no se mandó ninguna.")
+        else:
+            messages.success(request, "Envío de invitaciones apagado.")
         return redirect("wholesale_customers:invitations")
 
 

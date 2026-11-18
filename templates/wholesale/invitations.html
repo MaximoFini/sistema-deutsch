@@ -25,6 +25,21 @@
 </section>
 
 <section class="mb-4 rounded-lg border border-stone-200 bg-white p-4 text-sm">
+  <h2 class="mb-2 font-semibold">Habilitar envío</h2>
+  <p class="mb-3 text-stone-600">Mientras el envío esté apagado no sale ninguna invitación. Al habilitarlo no se manda nada solo: después tenés que apretar «Enviar invitaciones».</p>
+  <form method="post" action="{% url 'wholesale_customers:invitations_switch' %}">
+    {% csrf_token %}
+    {% if enabled %}
+    <input type="hidden" name="enabled" value="0">
+    <button class="rounded border border-stone-300 px-3 py-2" onclick="return confirm('¿Apagar el envío de invitaciones?')">Apagar el envío</button>
+    {% else %}
+    <input type="hidden" name="enabled" value="1">
+    <button class="rounded bg-amber-700 px-3 py-2 text-white" onclick="return confirm('¿Habilitar el envío de invitaciones? Todavía no se manda ninguna: después tenés que apretar «Enviar invitaciones».')">Habilitar envío</button>
+    {% endif %}
+  </form>
+</section>
+
+<section class="mb-4 rounded-lg border border-stone-200 bg-white p-4 text-sm">
   <h2 class="mb-2 font-semibold">Enviar invitaciones</h2>
   <p class="mb-3 text-stone-600">Cada cliente recibe un enlace de un solo uso que vence a los {{ days }} días, para crear su contraseña y aceptar los términos. Se encolan hasta {{ per_hour }} por hora (ahora se pueden encolar {{ budget }}).</p>
   <div class="flex flex-wrap items-start gap-3">
@@ -41,7 +56,7 @@
       <button {% if not enabled %}disabled{% endif %} class="rounded border border-stone-300 px-3 py-2 disabled:cursor-not-allowed disabled:text-stone-400">Enviar a los marcados</button>
     </form>
   </div>
-  {% if not enabled %}<p class="mt-2 text-xs text-stone-500">Los botones están apagados hasta que se habilite el envío el día del lanzamiento.</p>{% endif %}
+  {% if not enabled %}<p class="mt-2 text-xs text-stone-500">Los botones están apagados hasta que habilites el envío con el interruptor de arriba.</p>{% endif %}
 </section>
 
 <div class="mb-3 flex flex-wrap items-center gap-3">
