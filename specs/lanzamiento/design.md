@@ -1,7 +1,7 @@
 # Design: Cierre y lanzamiento · M9-03 (cuentas e invitaciones)
 
-**Status:** Implementado (2026-11-18) · solo lo de US-3 / DDEV-58; US-1, US-2 y US-4 no están en este documento
-**Requirements:** [requirements.md](./requirements.md) (US-3, R3.1 a R3.8)
+**Status:** US-3 implementado (2026-11-18) · US-2 implementado (2026-11-20, salvo lo pendiente de terceros); US-1 y US-4 no están en este documento
+**Requirements:** [requirements.md](./requirements.md) (US-3, R3.1 a R3.8; US-2, R2.1 a R2.5)
 
 ## Qué cambió respecto de lo aprobado
 
@@ -45,3 +45,36 @@ Apagado por defecto. Exige `STORE_INVITATIONS_ENABLED=true` (si no, `Invitations
 ## Fuera de alcance / pendiente
 
 SMTP y envío real (DDEV-7), importar cuenta corriente y límites desde un archivo (se habilita aparte), pantalla de control de lanzamiento (US-4).
+
+---
+
+# US-2 · Prueba punta a punta (DDEV-57)
+
+## Piezas
+
+- **Guion** (`docs/runbooks/prueba-punta-a-punta.md`, R2.1, R2.2, R2.5): un bloque por rol con tabla de pasos, resultado ✔/✘ y «qué vi». Lo que depende de terceros se marca «pendiente de tercero» y no cuenta como falla.
+- **Datos de ensayo** (`manage.py seed_demo_launch`, R2.4).
+- **Prueba automática** (`tests/test_punta_a_punta.py`, `tests/punta_a_punta.py`, R2.3): cada test recorre un circuito por las pantallas y los servicios reales, con canales simulados.
+
+## `seed_demo_launch`
+
+- Seguridad: no corre si `ENVIRONMENT_NAME` es `prod`/`production`; sin `--yes` no hace nada; todo en una transacción.
+- Marca: productos «ENSAYO …» con SKU `ENS-…`; clientes «ENSAYO …» con email `@ensayo.invalid`; usuarios `@ensayo.invalid`; pedidos de esos clientes o productos o con referencia «ENSAYO …»; expreso «ENSAYO Expreso». `--limpiar` borra exactamente eso: nunca un pedido histórico (`is_historical`) ni nada sin la marca.
+- Idempotente: lo que existe se reutiliza; los pedidos no se arman dos veces. Contraseñas: al azar (14 caracteres sin letras confusas), impresas una vez en la consola, no se guardan; `--nuevas-claves` genera otras.
+- Mudo: durante el seed `mail.enqueue` y `alerts.emit` están anulados (no queda ni una fila en la cola de emails ni un aviso, que podría mandar email) y los pedidos de ML y TN se crean sin `ExternalRef`, así que despacharlos no encola ninguna escritura al canal. Los pedidos mayoristas se arman con `checkout.place_order` (el camino real), cargados por el vendedor en nombre del cliente para no necesitar el mínimo de compra.
+- Limpieza y auditoría: `AuditLog` es inmutable y protege a los usuarios que nombra, así que un usuario de ensayo que figure en ella (el vendedor, por ejemplo) no se borra: queda desactivado, sin contraseña y sin grupos, y el seed lo reactiva si se vuelve a correr. Si algo que no es de ensayo depende de un dato de ensayo, no se borra nada (todo o nada) y avisa.
+
+## Prueba automática: circuitos (letras del guion)
+
+| | Circuito |
+|---|---|
+| a | Mayorista transferencia: registro, aprobación, catálogo, carrito, checkout, comprobante, confirmar pago, tanda y picking, despacho, facturado y reserva liberada; y vencimiento por falta de pago (con recordatorio y saldo a favor). |
+| b | Efectivo (se cobra al entregar) y cuenta corriente (no genera «sin cobrar»). |
+| c | Faltante, crédito por faltante usado en el pedido siguiente y devolución recibida (el stock no lo mueve el sistema). |
+| d | ML Flex (notificación, etiqueta, tanda, plazo, despacho, entregado por el canal, escaneado por el canal) y ML Full (lo despacha ML, no se prepara). |
+| e | TN Envío Nube y retiro: solo se escribe el estado de envío; ninguna llamada a productos, stock o precios sale a ningún canal. |
+| f | Alertas: sin cobrar, sin facturar, plazo de Flex y reclamos; un histórico no genera ninguna. |
+| g | Invitación: habilitar, ensayo, envío simulado (locmem), enlace, contraseña, ingreso y token usado. |
+| h | Cada circuito comprueba que no quedaron avisos ni emails de más (`assert_only`); el seed es seguro, idempotente y se limpia. |
+
+Los canales son `respx` con `assert_all_mocked` (una llamada no declarada rompe el test) y el correo es locmem. La regla de oro se verifica de dos maneras: `guard.ensure_write_allowed` parcheado para fallar y revisión de todas las llamadas HTTP salientes.

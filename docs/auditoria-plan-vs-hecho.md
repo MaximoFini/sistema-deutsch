@@ -30,7 +30,7 @@ Se compararon los 67 tickets de Plane (DDEV-1 a 67), el PRD y los specs con el c
 | Ticket | Estado real |
 |---|---|
 | DDEV-56 Historial de 12 meses | **Hecho para TiendaQuick** (2.022 pedidos, incluidos los de ML). No se importó el historial de ML por API: eso aportaría comisión y costo de envío reales de ese período, que hoy faltan en 1.211 ventas de ML. |
-| DDEV-57 Prueba punta a punta | **No hecho.** Falta el guion por rol y la prueba automática de todo el circuito. |
+| DDEV-57 Prueba punta a punta | **Hecho, salvo lo pendiente de terceros.** Guion por rol en `docs/runbooks/prueba-punta-a-punta.md`, comando `seed_demo_launch` y prueba automática de los circuitos con canales simulados. Falta que las personas de Deutsch hagan la prueba y lo que depende de Contabilium, ML, ARCA y el servidor. |
 | DDEV-58 Importar e invitar | **Hecho hasta el envío**: 582 cuentas listas, 60 sin cuenta. El envío está apagado y no hay correo configurado. |
 | DDEV-59 Lanzamiento | **No hecho.** Falta la pantalla de control de lanzamiento, el interruptor de tienda abierta y cerrada, el resumen diario de la primera semana y el checklist de salida. |
 
