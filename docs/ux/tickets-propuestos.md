@@ -117,8 +117,8 @@ Transversal (todo el módulo)               M10-13
 - **Prioridad.** P0. **Depende de:** M10-02 (decisiones). También usa la densidad y el contraste decididos en la primera parte de M10-03 (no cargado como bloqueo en Plane para evitar el ciclo con la segunda parte de M10-03). **Fase.** B. **Estimación.** M + L + M + S–M ≈ 18–20 días. **Prototipo:** en parte (tamaños y contraste, con el prototipo de M10-03).
 - *Junta los antiguos M10-05, M10-06, M10-11 y M10-31.*
 
-### [M10-05] Esqueleto nuevo: barra lateral con interruptor por usuario, registro de navegación, buscador global y atajos
-- **Descripción.** Un registro en código con grupo, ítem, etiqueta, ícono, URL y permiso que alimente barra lateral, barra inferior, buscador global y migas; con pruebas automáticas; no cambia permisos ni URLs. Esqueleto nuevo (`UI_V2`) con barra lateral agrupada, ítem activo marcado, grupo actual abierto; barra superior con logo, buscador, campana, usuario; barra inferior en celular/tablet; opción «volver a la versión anterior» por usuario; no cambia las pantallas internas. Buscador en la barra superior (`/` y `Ctrl/⌘+K`), con resultados agrupados (Pedidos, Clientes, Productos, Preguntas) y filtrados por permisos; ícono de búsqueda en la barra inferior móvil. Pocos atajos consistentes (`/`, `?`, `g` + letra, `j`/`k` en listas) con ayuda visible y sin interferir con campos de texto ni lectores de pantalla.
+### [M10-05] Esqueleto nuevo: barra lateral con interruptor por usuario, registro de navegación y buscador global
+- **Descripción.** Un registro en código con grupo, ítem, etiqueta, ícono, URL y permiso que alimente barra lateral, barra inferior, buscador global y migas; con pruebas automáticas; no cambia permisos ni URLs. Esqueleto nuevo (`UI_V2`) con barra lateral agrupada, ítem activo marcado, grupo actual abierto; barra superior con logo, buscador, campana, usuario; barra inferior en celular/tablet; opción «volver a la versión anterior» por usuario; no cambia las pantallas internas. Buscador en la barra superior (`/` y `Ctrl/⌘+K`), con resultados agrupados (Pedidos, Clientes, Productos, Preguntas) y filtrados por permisos; ícono de búsqueda en la barra inferior móvil. El resto de los atajos de teclado está en M10-11, con prioridad baja.
 - **Criterios de aceptación.**
   - *Registro único de navegación*
     1. Un solo lugar define toda la navegación; `_menu.html` actual se deriva de él (sin cambiar lo que ve cada rol).
@@ -137,15 +137,10 @@ Transversal (todo el módulo)               M10-13
     12. Nunca devuelve resultados que el rol no puede ver (prueba por rol).
     13. Responde en ≤ 300 ms para la consulta típica con volumen de prueba (propuesta a calibrar con M10-01).
     14. Usable solo con teclado y con lector de pantalla (`role="combobox"`/`listbox` correcto).
-    15. El placeholder muestra el atajo; el estado vacío sugiere qué probar.
+    15. El placeholder muestra cómo abrirlo; el estado vacío sugiere qué probar.
     16. Prueba: ≥ 80 % de las tareas «encontrar X» se resuelven con el buscador en ≤ 15 s (a ajustar tras M10-01).
-  - *Atajos de teclado*
-    17. Cada atajo está en la ayuda (`?`) y se muestra donde corresponde (menú/placeholder).
-    18. Ningún atajo se dispara al escribir en un campo.
-    19. Se pueden desactivar por usuario.
-    20. Documentados en la guía para el cliente.
-- **Prioridad.** P0 (los atajos solos eran P3). **Depende de:** M10-04 (y, a través de él, de la agrupación decidida en M10-02). **Fase.** B (buscador y atajos pueden cerrarse en C/D sin frenar el resto). **Estimación.** S–M + L + L + S ≈ 20 días. **Prototipo:** la navegación y el buscador ya se prueban en M10-02.
-- *Junta los antiguos M10-07, M10-08, M10-18 y M10-19.*
+- **Prioridad.** P0. **Depende de:** M10-04 (y, a través de él, de la agrupación decidida en M10-02). **Fase.** B (el buscador puede cerrarse en C/D sin frenar el resto). **Estimación.** S–M + L + L ≈ 18 días. **Prototipo:** la navegación y el buscador ya se prueban en M10-02.
+- *Junta los antiguos M10-07, M10-08 y M10-18. Los atajos (antiguo M10-19) pasaron a M10-11 el 20/11/2026, a pedido del dueño, para que queden con prioridad baja.*
 
 ### [M10-06] Lenguaje: glosario, formularios, mensajes de error y ayuda en contexto
 - **Descripción.** Con los resultados de M10-02, fijar los nombres de las secciones y estados en el lenguaje del equipo (y la regla «Deutsch», nunca «DEUTSCH»); guía de tono (voseo, directo, cálido, sin dramatismo) y plantillas de mensajes (éxito, error «qué pasó + qué hacer»). Patrón único de formularios: una columna, validación en línea al salir del campo, resumen de errores arriba, conservar lo ingresado, y un mecanismo global de «un solo envío» (botón deshabilitado + «Enviando…») para todos los formularios POST del panel. Actualizar la guía simple para Maico/Deutsch (regla ya vigente) con cada cambio; ayuda breve en cada pantalla («¿Cómo se usa?»); aviso de novedades al activar el esqueleto nuevo; capacitación corta por rol.
@@ -244,7 +239,7 @@ Transversal (todo el módulo)               M10-13
 
 ## Fase D: resto de módulos
 
-### [M10-11] Resto de módulos: atención ML, catálogo y stock, mayoristas, reportes y pantallas de sistema
+### [M10-11] Resto de módulos: atención ML, catálogo y stock, mayoristas, reportes, pantallas de sistema y atajos de teclado
 - **Descripción.** Llevar al sistema nuevo las pantallas que quedan. **Atención de Mercado Libre:** colas y fichas con cola por antigüedad y tiempo transcurrido, respuestas guardadas a un toque, un botón primario «Enviar», paso automático a la siguiente. **Catálogo y stock:** listas y fichas de Catálogo, Productos sin vincular, Stock y precios por canal y Calidad de datos con el patrón de listas; flujo de vincular con una acción clara. **Mayoristas (administración):** clientes, invitaciones, aprobación, confirmación de pago, faltantes y ajustes con los flujos de §5.5 y §5.6, y la ficha del cliente con «Armar pedido para este cliente». **Reportes como tablero:** una pantalla de resumen con 4–6 indicadores y comparativo destacado (el segundo en detalle), gráficos con tabla alternativa, y filtros con divulgación progresiva. **Pantallas de sistema** (integraciones, usuarios, auditoría, expresos, tipos de aviso): patrones y componentes; la salud de integraciones como semáforo claro y accionable; Usuarios con etiquetas de permisos legibles.
 - **Criterios de aceptación.**
   - *Atención de Mercado Libre (preguntas, mensajes, reclamos)*
@@ -275,8 +270,13 @@ Transversal (todo el módulo)               M10-13
     21. Auditoría con filtros y búsqueda y lectura de cambios legible.
     22. Usuarios: asignar un rol toma ≤ 3 interacciones; los permisos se agrupan por área.
     23. AA verificado.
-- **Prioridad.** P2 (Reportes y Sistema solos eran P3). **Depende de:** M10-05, M10-06, M10-08, M10-09 (niveles de alerta, para Atención ML), M10-10 (control de accesibilidad, para Reportes y Sistema). **Fase.** D. **Estimación.** M + M–L + L + M + M ≈ 26 días (se puede partir por pantalla al ejecutarlo).
-- *Junta los antiguos M10-21, M10-22, M10-23, M10-24 y M10-25.*
+  - *Atajos de teclado (prioridad más baja: se hacen al final, si hay tiempo)*
+    24. Pocos atajos consistentes (`?`, `g` + letra, `j`/`k` en listas); cada uno está en la ayuda (`?`) y se muestra donde corresponde.
+    25. Ningún atajo se dispara al escribir en un campo.
+    26. Se pueden desactivar por usuario.
+    27. Documentados en la guía para el cliente.
+- **Prioridad.** P2 (Reportes y Sistema solos eran P3; los atajos, P3, van último). **Depende de:** M10-05, M10-06, M10-08, M10-09 (niveles de alerta, para Atención ML), M10-10 (control de accesibilidad, para Reportes y Sistema). **Fase.** D. **Estimación.** M + M–L + L + M + M + S ≈ 28 días (se puede partir por pantalla al ejecutarlo).
+- *Junta los antiguos M10-21, M10-22, M10-23, M10-24, M10-25 y M10-19 (atajos, movidos desde M10-05).*
 
 ---
 
@@ -319,7 +319,7 @@ Transversal (todo el módulo)               M10-13
 ## Resumen
 
 - **Total: 13 tickets** (versión reducida del 20/11/2026; antes 31, mismo alcance).
-- **P0: M10-01, 02, 03, 04, 05, 13** (6). **P1: M10-06, 07, 08, 09, 10** (5). **P2: M10-11, 12** (2). Sin P3: lo que era P3 quedó dentro de tickets con prioridad mayor (atajos en M10-05; reportes y sistema en M10-11).
+- **P0: M10-01, 02, 03, 04, 05, 13** (6). **P1: M10-06, 07, 08, 09, 10** (5). **P2: M10-11, 12** (2). Sin P3: lo que era P3 quedó dentro de tickets con prioridad mayor (reportes, sistema y atajos de teclado en M10-11, que es baja).
 - **Dependencias cargadas en Plane (bloqueado por):** 02←01 · 03←01 · 04←02 · 05←04 · 06←02, 04 · 07←04, 05 · 08←04, 05 · 09←01, 04 · 10←01, 04, 05 · 11←05, 06, 08, 09, 10 · 12←04 · 13 sin bloqueo (transversal). Tres dependencias quedan solo escritas en el ticket para no crear ciclos ni frenar el arranque: la segunda parte de M10-03 necesita M10-04/05/06; las métricas en producción de M10-01 necesitan M10-09/10; la ayuda en contexto de M10-06 necesita M10-05.
 - Estimación total gruesa: sumando los rangos de cada ticket (S≈2, M≈4, L≈8, XL≈12 días) da del orden de **150 a 170 días de trabajo de una persona, unas 30 a 35 semanas-persona** (igual que antes de la fusión). Es un orden de magnitud sin compromiso: se puede paralelizar (diseño y desarrollo) y recortar si se posterga lo P2; depende de cuántas rondas de prueba se hagan y de qué tan rápido responda Deutsch a las decisiones. Un primer corte útil (Fases A y B + M10-07, M10-09 y la segunda parte de M10-03) ronda las 16 a 20 semanas-persona.
 - Dependencias principales: la fase A condiciona a B y al nuevo flujo de depósito (M10-03); M10-04 es la base de casi todo; M10-05 habilita la migración; el «un solo envío» de M10-06 es prerrequisito del flujo de depósito.
@@ -348,7 +348,7 @@ Transversal (todo el módulo)               M10-13
 | M10-16 Formularios, errores y un solo envío | M10-06 | DDEV-83 → Cancelled |
 | M10-17 Accesibilidad base (WCAG 2.2 AA) | M10-10 | DDEV-84 (se conserva) |
 | M10-18 Buscador global | M10-05 | DDEV-85 → Cancelled |
-| M10-19 Atajos de teclado | M10-05 | DDEV-86 → Cancelled |
+| M10-19 Atajos de teclado | M10-11 | DDEV-86 → Cancelled |
 | M10-20 Rendimiento percibido | M10-10 | DDEV-87 → Cancelled |
 | M10-21 Atención de Mercado Libre | M10-11 | DDEV-88 (se conserva) |
 | M10-22 Catálogo y stock | M10-11 | DDEV-89 → Cancelled |
