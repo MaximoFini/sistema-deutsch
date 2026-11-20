@@ -91,7 +91,7 @@ Regla: **una pantalla, 4–6 tarjetas accionables, ordenadas por urgencia, cada 
 
 - **Principio.** Visibilidad del estado + tablero de una pantalla (IN §16, baja-media) + efecto de una acción principal (IN §6).
 - **Alternativa descartada.** *Inicio con gráficos y KPIs de ventas para todos*: es el rol del dueño, no del que prepara pedidos; ocupa atención sin función. Los reportes quedan en su sección.
-- **Antes de construir:** prototipar las 4 pantallas y probar con **una persona por rol** (M10-03).
+- **Antes de construir:** prototipar las 4 pantallas y probar con **una persona por rol** (M10-02).
 
 ---
 
@@ -224,7 +224,7 @@ Objetivo: **WCAG 2.2 nivel AA** en todo el panel y la tienda (norma, confianza a
 
 ## 9. Mobile y tablet para el depósito
 
-Evidencia **débil** para guantes y luz (IN §4, §20): lo que sigue son **hipótesis a probar en el depósito real** antes de fijar medidas (M10-04).
+Evidencia **débil** para guantes y luz (IN §4, §20): lo que sigue son **hipótesis a probar en el depósito real** antes de fijar medidas (M10-03).
 
 - **Barra inferior de 4 tareas** en celular/tablet vertical: *Preparar · Tandas · Despacho · Buscar*, más «Más» para el resto. Desaparece la tira horizontal de enlaces.
 - **Tabla → tarjetas hasta 1024 px** (cubre tablet vertical).
@@ -297,7 +297,7 @@ Reglas de honestidad: **todo número «meta» es una propuesta**; se fija con la
 4. **Pantalla por pantalla**, en este orden (por impacto y riesgo): Hoy (inicio por rol) → Preparar/Tandas/Despacho (depósito) → Pedidos (lista y ficha) → Atención de Mercado Libre → Catálogo y stock → Mayoristas (administración) → Reportes → Sistema.
 5. **Lista de control por pantalla migrada:** tokens aplicados · componentes del sistema · AA verificado · responsive hasta 360 px · estados vacío/error/carga · textos revisados · prueba de usuarios hecha · pruebas automáticas verdes.
 6. **Cuando todas las pantallas estén migradas**, se quita el esqueleto viejo; no antes.
-7. **Regresión visual:** capturas automáticas de las pantallas clave antes/después (herramienta a elegir; ver ticket M10-27).
+7. **Regresión visual:** capturas automáticas de las pantallas clave antes/después (herramienta a elegir; ver ticket M10-13).
 - **Principio.** Reducir riesgo con cambios chicos y reversibles (reversibilidad, Reason: tolerar y contener errores, IN §14). **Alternativa descartada:** «gran rediseño de una vez»: 60+ plantillas, riesgo de romper flujos del depósito en día de despacho, y sin forma de aprender entre pasos.
 
 ---

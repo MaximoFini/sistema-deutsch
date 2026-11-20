@@ -50,7 +50,7 @@ Las fuentes marcadas con URL fueron abiertas o aparecieron en búsquedas durante
 - **Guantes.** La evidencia es **débil**: un estudio militar con n=6 encontró que los guantes bajan la precisión al primer toque, y que objetivos dimensionados con MIL-STD-1472 no produjeron errores de botón equivocado con ni sin guantes; el resto es material de fabricantes y una patente. No encontré datos de legibilidad al sol para tablets de depósito. (Búsqueda del 2026-11-20.)
 - **Fuentes.** https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html (leída). https://www.microsoft.com/en-us/research/?p=155150 (Parhi et al., resumen de buscador). Tamaños de Apple (44 pt) y Material (48 dp): no verificado en esta sesión.
 - **Confianza.** **Alta** en el mínimo WCAG 24 px; **media** en ~9–10 mm para pulgar (estudio único, 2006, pantallas chicas); **baja** en cualquier número específico para guantes.
-- **Implica acá.** El flujo de depósito ya usa casillas de 24–28 px dentro de filas de 44 px (prepare.html, dispatch.html, batch_detail.html), lo cual va por buen camino. Propuesta: objetivos de **48 px** y separación ≥ 8 px en el modo depósito, acción principal abajo (zona del pulgar), y **probar con guantes reales en el depósito** antes de fijar medidas (ticket M10-04).
+- **Implica acá.** El flujo de depósito ya usa casillas de 24–28 px dentro de filas de 44 px (prepare.html, dispatch.html, batch_detail.html), lo cual va por buen camino. Propuesta: objetivos de **48 px** y separación ≥ 8 px en el modo depósito, acción principal abajo (zona del pulgar), y **probar con guantes reales en el depósito** antes de fijar medidas (ticket M10-03).
 
 ## 5. Gestalt, proximidad y agrupación
 

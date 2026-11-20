@@ -114,4 +114,4 @@ Escala de impacto: **Crítico** (afecta tareas diarias de varios roles o segurid
 - Cuántos avisos llegan por día por rol y cuántos se accionan.
 - Cómo usan realmente el panel (qué módulos, en qué orden, qué errores cometen).
 - Legibilidad al sol y con guantes.
-- Estado de la tienda mayorista contra los mismos criterios (se audita en M10-26).
+- Estado de la tienda mayorista contra los mismos criterios (se audita en M10-12).
